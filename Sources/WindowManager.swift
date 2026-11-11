@@ -1,4 +1,4 @@
-// 窗口管理:把"动作"变成"窗口挪到哪"。
+// Window management: turn an action into "this window goes there".
 
 import AppKit
 import ApplicationServices
@@ -6,11 +6,11 @@ import ApplicationServices
 final class WindowManager {
     static let shared = WindowManager()
 
-    /// 没有辅助功能权限时被调用(由 App 负责提示用户)
+    /// Called when the Accessibility permission is missing (the app tells the user)
     var onUntrusted: (() -> Void)?
 
-    private var saved: [AXUIElement: CGRect] = [:]    // 分屏前的原始位置,用于"还原"
-    private var lastSet: [AXUIElement: CGRect] = [:]  // 我们上次给它设的位置
+    private var saved: [AXUIElement: CGRect] = [:]    // frame before we touched the window, for Restore
+    private var lastSet: [AXUIElement: CGRect] = [:]  // the frame we last set
     private var lastKey: String?
     private var lastWindow: AXUIElement?
     private var cycle = 0
@@ -18,7 +18,7 @@ final class WindowManager {
     private var config: Config { ConfigStore.shared.config }
     private var gap: CGFloat { CGFloat(config.gap) }
 
-    /// 与矩形重叠面积最大的屏幕
+    /// The screen that overlaps the rect the most
     func screen(for axFrame: CGRect) -> NSScreen? {
         let cocoa = flip(axFrame)
         return NSScreen.screens.max { a, b in
@@ -26,7 +26,7 @@ final class WindowManager {
         } ?? NSScreen.main
     }
 
-    // MARK: 入口
+    // MARK: Entry points
 
     func perform(_ action: Action, on window: AXUIElement? = nil, screen forced: NSScreen? = nil) {
         guard AX.trusted else { onUntrusted?(); return }
@@ -46,7 +46,7 @@ final class WindowManager {
             let dest = flip(screens[j].visibleFrame)
             place(w, from: cur, to: remap(cur, from: visible, to: dest), within: dest, key: action.rawValue)
         default:
-            // 同一个窗口连按同一个键 → 进入下一档(目前只有左/右半屏有多档)
+            // Same key again on the same window → next step in the cycle (only the halves have steps today)
             let repeated = lastKey == action.rawValue && lastWindow.map { CFEqual($0, w) } == true
                 && lastSet[w].map { nearlyEqual($0, cur, tol: 30) } == true
             cycle = repeated ? cycle + 1 : 0
@@ -55,7 +55,7 @@ final class WindowManager {
         }
     }
 
-    /// 配置文件里 custom 定义的位置
+    /// A position defined under `custom` in the config
     func perform(_ layout: CustomLayout) {
         guard AX.trusted else { onUntrusted?(); return }
         guard let w = AX.focusedWindow(), let cur = AX.frame(of: w), let scr = screen(for: cur) else { NSSound.beep(); return }
@@ -63,7 +63,7 @@ final class WindowManager {
         place(w, from: cur, to: screenRect(unit: layout.unit, visible: visible, gap: gap), within: visible, key: "custom:" + layout.name)
     }
 
-    /// 一键排列:每个显示器上各自把可见窗口铺开。超过上限时只排最近用过的那几个,其余不动。
+    /// Tile all: spread the visible windows on each display. Above the limit, only the most recent ones are tiled.
     func tileAll() {
         let all = AX.windowsFrontToBack()
         guard !all.isEmpty else { NSSound.beep(); return }
@@ -78,7 +78,7 @@ final class WindowManager {
             let visible = flip(scr.visibleFrame)
             let chosen = Array(byScreen[scr]!.prefix(max(1, config.tile.max)))
             let rows = config.tile.rows(for: chosen.count)
-            // 按窗口现在的位置分配格子(先分行再分列),尽量少挪动
+            // Assign cells by where windows already are (rows first, then columns) so they move as little as possible
             let byY = chosen.sorted { $0.frame.midY < $1.frame.midY }
             var ordered: [(window: AXUIElement, frame: CGRect)] = []
             var idx = 0
@@ -93,15 +93,15 @@ final class WindowManager {
         lastKey = nil
     }
 
-    // MARK: 实际挪窗口
+    // MARK: Moving windows
 
     private func place(_ w: AXUIElement, from cur: CGRect, to target: CGRect, within visible: CGRect?, key: String?) {
-        // 记住原始位置(只有当它不是我们自己摆的位置时才记)
+        // Remember the original frame (only if the current one is not a frame we set)
         if let ls = lastSet[w] { if !nearlyEqual(ls, cur) { saved[w] = cur } } else { saved[w] = cur }
 
         AX.setFrame(target, of: w)
 
-        // 窗口有最小尺寸时可能超出屏幕,往回推一下
+        // A window with a minimum size can overflow the screen; nudge it back
         if let v = visible, let actual = AX.frame(of: w) {
             var o = actual.origin
             if actual.maxX > v.maxX { o.x = max(v.minX, v.maxX - actual.width) }

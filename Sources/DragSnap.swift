@@ -1,5 +1,5 @@
-// 拖到屏幕边缘吸附:拖着窗口碰到屏幕边缘时显示预览框,松手后摆到对应位置。
-// 默认关闭,因为 macOS 自带的拖边平铺会和它同时出现。
+// Drag-to-edge snapping: show a preview when a dragged window touches a screen edge, place it on release.
+// Off by default, because macOS has its own edge tiling and both previews would show.
 
 import AppKit
 import ApplicationServices
@@ -51,7 +51,7 @@ final class DragSnapper {
         target = nil
     }
 
-    /// 鼠标贴到哪条边 → 对应哪个动作。想改吸附规则就改这里。(Cocoa 坐标,y 向上)
+    /// Which edge the pointer touches → which action. Change the snap rules here. (Cocoa coordinates, y up)
     static func zone(at p: CGPoint, in f: CGRect) -> Action? {
         let edge: CGFloat = 4, corner: CGFloat = 120
         let l = p.x <= f.minX + edge, r = p.x >= f.maxX - edge - 1
@@ -86,7 +86,7 @@ final class DragSnapper {
                 return
             }
             if !moving {
-                // 只有窗口真的在被拖动(位置变了、大小没变)才算
+                // Only count it if a window is really being dragged (origin changed, size did not)
                 guard let w = window, let ini = initial, let cur = AX.frame(of: w) else { return }
                 moving = cur.origin != ini.origin && abs(cur.width - ini.width) < 2 && abs(cur.height - ini.height) < 2
                 if !moving { return }

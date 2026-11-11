@@ -1,5 +1,5 @@
-// 内置动作。想加一个新动作:在这里加一个 case,填上标题和默认快捷键,
-// 然后在 Geometry.swift 的 unitRect(for:) 里给它一个位置。
+// Built-in actions. To add one: add a case here with a title and a default
+// shortcut, then give it a position in unitRect(for:) in Geometry.swift.
 
 import AppKit
 
@@ -13,30 +13,30 @@ enum Action: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .tileAll: return "一键排列所有窗口"
-        case .leftHalf: return "左半屏"
-        case .rightHalf: return "右半屏"
-        case .topHalf: return "上半屏"
-        case .bottomHalf: return "下半屏"
-        case .topLeft: return "左上 1/4"
-        case .topRight: return "右上 1/4"
-        case .bottomLeft: return "左下 1/4"
-        case .bottomRight: return "右下 1/4"
-        case .firstThird: return "左 1/3"
-        case .centerThird: return "中 1/3"
-        case .lastThird: return "右 1/3"
-        case .firstTwoThirds: return "左 2/3"
-        case .lastTwoThirds: return "右 2/3"
-        case .maximize: return "最大化"
-        case .almostMaximize: return "接近最大化"
-        case .center: return "居中"
-        case .restore: return "还原"
-        case .nextDisplay: return "移到下一个显示器"
-        case .prevDisplay: return "移到上一个显示器"
+        case .tileAll: return "Tile All Windows"
+        case .leftHalf: return "Left Half"
+        case .rightHalf: return "Right Half"
+        case .topHalf: return "Top Half"
+        case .bottomHalf: return "Bottom Half"
+        case .topLeft: return "Top Left"
+        case .topRight: return "Top Right"
+        case .bottomLeft: return "Bottom Left"
+        case .bottomRight: return "Bottom Right"
+        case .firstThird: return "First Third"
+        case .centerThird: return "Center Third"
+        case .lastThird: return "Last Third"
+        case .firstTwoThirds: return "First Two Thirds"
+        case .lastTwoThirds: return "Last Two Thirds"
+        case .maximize: return "Maximize"
+        case .almostMaximize: return "Almost Maximize"
+        case .center: return "Center"
+        case .restore: return "Restore"
+        case .nextDisplay: return "Next Display"
+        case .prevDisplay: return "Previous Display"
         }
     }
 
-    /// 默认快捷键,和 Rectangle 的默认值一致。用户可以在配置文件的 shortcuts 里覆盖。
+    /// Default shortcut, matching Rectangle's defaults. Users override these in the config's `shortcuts`.
     var defaultShortcut: String {
         switch self {
         case .tileAll: return "ctrl+alt+a"
@@ -62,7 +62,7 @@ enum Action: String, CaseIterable {
         }
     }
 
-    /// 菜单里的分组
+    /// Grouping in the menu
     static let groups: [[Action]] = [
         [.tileAll],
         [.leftHalf, .rightHalf, .topHalf, .bottomHalf],
@@ -72,7 +72,7 @@ enum Action: String, CaseIterable {
         [.nextDisplay, .prevDisplay],
     ]
 
-    /// 小图标里要涂实的区域(单位矩形)
+    /// Regions (unit rects) to fill in the small layout icon
     var glyphUnits: [CGRect] {
         switch self {
         case .tileAll:

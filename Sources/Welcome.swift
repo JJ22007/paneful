@@ -1,5 +1,5 @@
-// 欢迎与配置引导:四步 —— 欢迎 → 授权 → 快捷键 → 定制。
-// 第一次启动时自动出现,之后可以从菜单栏的「欢迎与教程…」再打开。
+// Welcome and setup guide, four steps: intro → permission → shortcuts → customize.
+// Shown automatically on first launch, and again from "Welcome Guide…" in the menu.
 
 import AppKit
 import ServiceManagement
@@ -27,20 +27,20 @@ final class WelcomeModel: ObservableObject {
     func setLaunchAtLogin(_ on: Bool) {
         do {
             if on { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
-        } catch { logLine("开机启动设置失败:\(error.localizedDescription)") }
+        } catch { logLine("launch at login failed: \(error.localizedDescription)") }
         launchAtLogin = SMAppService.mainApp.status == .enabled
     }
 }
 
-/// 欢迎页最后一步展示的示例配置
+/// The example config shown on the last step of the guide
 let exampleSnippet = """
 {
   "gap": 8,
   "shortcuts": { "maximize": "ctrl+alt+m" },
   "custom": [
-    { "name": "写代码", "key": "ctrl+alt+1",
+    { "name": "Code", "key": "ctrl+alt+1",
       "x": 0, "y": 0, "w": 0.62, "h": 1 },
-    { "name": "看文档", "key": "ctrl+alt+2",
+    { "name": "Docs", "key": "ctrl+alt+2",
       "x": 0.62, "y": 0, "w": 0.38, "h": 1 }
   ],
   "tile": {
@@ -78,10 +78,10 @@ struct WelcomeView: View {
                 }
                 Spacer()
                 if model.step > 0 {
-                    Button("上一步") { model.step -= 1 }
+                    Button("Back") { model.step -= 1 }
                         .buttonStyle(SecondaryButton())
                 }
-                Button(model.step == WelcomeModel.stepCount - 1 ? "完成" : (model.step == 0 ? "开始" : "继续")) {
+                Button(model.step == WelcomeModel.stepCount - 1 ? "Done" : (model.step == 0 ? "Get Started" : "Continue")) {
                     if model.step == WelcomeModel.stepCount - 1 { model.onFinish() } else { model.step += 1 }
                 }
                 .buttonStyle(PrimaryButton())
@@ -95,25 +95,25 @@ struct WelcomeView: View {
     }
 }
 
-// MARK: - 第 1 步:欢迎
+// MARK: - Step 1: intro
 
 private struct IntroStep: View {
     var body: some View {
         VStack(spacing: 0) {
             Spacer(minLength: 0)
             AppBadge().frame(width: 84, height: 84)
-            Text("分屏 Fenping")
+            Text("Paneful")
                 .font(.system(size: 30, weight: .semibold))
                 .padding(.top, 20)
-            Text("一个你能完全读懂、也能完全改写的 macOS 分屏工具。")
+            Text("Window tiling for macOS that isn’t painful.")
                 .font(.system(size: 14))
                 .foregroundStyle(.secondary)
                 .padding(.top, 6)
 
             VStack(alignment: .leading, spacing: 16) {
-                Feature(icon: "keyboard", title: "键盘分屏", detail: "半屏、四分之一、三分之一,快捷键与 Rectangle 一致。")
-                Feature(icon: "square.grid.2x2", title: "一键排列", detail: "按一下,桌面上所有窗口自动铺开,按数量选布局。")
-                Feature(icon: "curlybraces", title: "一个文件定制一切", detail: "快捷键、自定义位置、排列规则都在一份 JSON 里,保存即生效。")
+                Feature(icon: "keyboard", title: "Keyboard tiling", detail: "Halves, quarters and thirds, with the same shortcuts as Rectangle.")
+                Feature(icon: "square.grid.2x2", title: "Tile everything", detail: "One key spreads every window on the desktop into a tidy grid.")
+                Feature(icon: "curlybraces", title: "One file to make it yours", detail: "Shortcuts, custom positions and tiling rules live in a single JSON file.")
             }
             .padding(.top, 34)
             .frame(maxWidth: 420, alignment: .leading)
@@ -157,28 +157,28 @@ private struct Feature: View {
     }
 }
 
-// MARK: - 第 2 步:授权
+// MARK: - Step 2: permission
 
 private struct PermissionStep: View {
     @ObservedObject var model: WelcomeModel
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            StepHeader(title: "允许 Fenping 移动窗口",
-                       subtitle: "macOS 要求你亲自授权,App 才能调整别的 App 的窗口。Fenping 只用它来读取和设置窗口的位置与大小,不联网、不收集任何数据。")
+            StepHeader(title: "Let Paneful move windows",
+                       subtitle: "macOS asks you to approve any app that arranges other apps’ windows. Paneful only reads and sets window positions and sizes. It never goes online and collects nothing.")
 
             HStack(spacing: 12) {
                 Image(systemName: model.trusted ? "checkmark.circle.fill" : "hand.raised.circle.fill")
                     .font(.system(size: 26))
                     .foregroundStyle(model.trusted ? Color.green : Color.orange)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(model.trusted ? "已授权" : "等待授权")
+                    Text(model.trusted ? "Permission granted" : "Waiting for permission")
                         .font(.system(size: 14, weight: .semibold))
-                    Text(model.trusted ? "一切就绪,可以继续了。" : "打开后这里会自动变成「已授权」。")
+                    Text(model.trusted ? "You’re all set. Continue when ready." : "Turns green once you switch it on.")
                         .font(.system(size: 12.5)).foregroundStyle(.secondary)
                 }
                 Spacer()
                 if !model.trusted {
-                    Button("打开系统设置") { AX.promptForTrust(); AX.openSettings() }
+                    Button("Open System Settings") { AX.promptForTrust(); AX.openSettings() }
                         .buttonStyle(PrimaryButton())
                 }
             }
@@ -187,14 +187,14 @@ private struct PermissionStep: View {
             .padding(.top, 26)
 
             VStack(alignment: .leading, spacing: 10) {
-                NumberedLine(n: 1, text: "点「打开系统设置」,进入 隐私与安全性 → 辅助功能")
-                NumberedLine(n: 2, text: "找到 Fenping,打开右边的开关")
-                NumberedLine(n: 3, text: "回到这里继续")
+                NumberedLine(n: 1, text: "Click Open System Settings. It opens Privacy & Security → Accessibility.")
+                NumberedLine(n: 2, text: "Find Paneful in the list and switch it on.")
+                NumberedLine(n: 3, text: "Come back here and continue.")
             }
             .padding(.top, 24)
 
             Spacer(minLength: 0)
-            Label("开关已经开着却仍显示「等待授权」?那是旧版本留下的记录:选中 Fenping 点「−」删除,再重新打开开关。自己从源码编译后常会遇到。", systemImage: "info.circle")
+            Label("Switched on but still waiting? That entry belongs to an older build. Select Paneful, click “−” to remove it, then switch it on again. If you build from source, run scripts/setup-signing.sh once and this stops happening.", systemImage: "info.circle")
                 .font(.system(size: 11.5))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -216,7 +216,7 @@ private struct NumberedLine: View {
     }
 }
 
-// MARK: - 第 3 步:快捷键
+// MARK: - Step 3: shortcuts
 
 private struct ShortcutsStep: View {
     private struct Card: Identifiable {
@@ -226,24 +226,24 @@ private struct ShortcutsStep: View {
 
     private func pretty(_ a: Action) -> String {
         let s = ConfigStore.shared.config.shortcuts[a.rawValue] ?? a.defaultShortcut
-        return KeyCombo.parse(s)?.pretty ?? "未设置"
+        return KeyCombo.parse(s)?.pretty ?? "not set"
     }
 
     private var cards: [Card] {
         [
-            Card(title: "左 / 右半屏", units: Action.leftHalf.glyphUnits, keys: [pretty(.leftHalf), pretty(.rightHalf)]),
-            Card(title: "最大化", units: Action.maximize.glyphUnits, keys: [pretty(.maximize)]),
-            Card(title: "一键排列", units: Action.tileAll.glyphUnits, keys: [pretty(.tileAll)]),
-            Card(title: "四个角", units: Action.topLeft.glyphUnits, keys: [pretty(.topLeft), pretty(.topRight), pretty(.bottomLeft), pretty(.bottomRight)]),
-            Card(title: "三分之一", units: Action.centerThird.glyphUnits, keys: [pretty(.firstThird), pretty(.centerThird), pretty(.lastThird)]),
-            Card(title: "还原", units: Action.restore.glyphUnits, keys: [pretty(.restore)]),
+            Card(title: "Left / right half", units: Action.leftHalf.glyphUnits, keys: [pretty(.leftHalf), pretty(.rightHalf)]),
+            Card(title: "Maximize", units: Action.maximize.glyphUnits, keys: [pretty(.maximize)]),
+            Card(title: "Tile everything", units: Action.tileAll.glyphUnits, keys: [pretty(.tileAll)]),
+            Card(title: "Corners", units: Action.topLeft.glyphUnits, keys: [pretty(.topLeft), pretty(.topRight), pretty(.bottomLeft), pretty(.bottomRight)]),
+            Card(title: "Thirds", units: Action.centerThird.glyphUnits, keys: [pretty(.firstThird), pretty(.centerThird), pretty(.lastThird)]),
+            Card(title: "Restore", units: Action.restore.glyphUnits, keys: [pretty(.restore)]),
         ]
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            StepHeader(title: "记住这几个键就够了",
-                       subtitle: "先点一下想移动的窗口,再按快捷键。全部动作也都在菜单栏图标里。")
+            StepHeader(title: "The only keys you need",
+                       subtitle: "Click the window you want to move, then press a shortcut. Every action is also in the menu bar icon.")
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 12) {
                 ForEach(cards) { c in
                     VStack(alignment: .leading, spacing: 10) {
@@ -258,7 +258,7 @@ private struct ShortcutsStep: View {
             }
             .padding(.top, 22)
             Spacer(minLength: 0)
-            Label("连按 \(pretty(.leftHalf)):宽度在 1/2 → 2/3 → 1/3 之间切换。", systemImage: "lightbulb")
+            Label("Press \(pretty(.leftHalf)) again to cycle the width: 1/2 → 2/3 → 1/3.", systemImage: "lightbulb")
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
                 .padding(.bottom, 20)
@@ -269,7 +269,7 @@ private struct ShortcutsStep: View {
 private struct FlowKeys: View {
     let keys: [String]
     var body: some View {
-        // 最多四个键帽,两行排开
+        // Up to four key caps, two per row
         VStack(alignment: .leading, spacing: 4) {
             ForEach(Array(stride(from: 0, to: keys.count, by: 2)), id: \.self) { i in
                 HStack(spacing: 4) {
@@ -292,19 +292,19 @@ private struct KeyCap: View {
     }
 }
 
-// MARK: - 第 4 步:定制
+// MARK: - Step 4: customize
 
 private struct CustomizeStep: View {
     @ObservedObject var model: WelcomeModel
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            StepHeader(title: "把它变成你自己的",
-                       subtitle: "所有设置都在一份 JSON 里。改完保存,立即生效,不用重启。")
+            StepHeader(title: "Make it yours",
+                       subtitle: "Every setting lives in one JSON file. Save it and the change applies right away. No restart.")
 
             HStack(alignment: .top, spacing: 18) {
                 VStack(alignment: .leading, spacing: 0) {
                     HStack {
-                        Text("~/.config/fenping/config.json")
+                        Text("~/.config/paneful/config.json")
                             .font(.system(size: 11, design: .monospaced))
                             .foregroundStyle(.secondary)
                         Spacer()
@@ -314,6 +314,7 @@ private struct CustomizeStep: View {
                     Text(exampleSnippet)
                         .font(.system(size: 11, design: .monospaced))
                         .lineSpacing(1.5)
+                        .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(12)
                 }
@@ -322,15 +323,15 @@ private struct CustomizeStep: View {
                 .frame(width: 336)
 
                 VStack(alignment: .leading, spacing: 13) {
-                    Explain(key: "shortcuts", text: "改掉任何一个快捷键")
-                    Explain(key: "custom", text: "你自己的位置,用 0~1 的屏幕比例描述")
-                    Explain(key: "tile", text: "一键排列时,几个窗口怎么分行")
-                    Explain(key: "gap", text: "窗口之间留多少空隙")
+                    Explain(key: "shortcuts", text: "Rebind any action")
+                    Explain(key: "custom", text: "Positions as screen fractions")
+                    Explain(key: "tile", text: "Windows per row when tiling")
+                    Explain(key: "gap", text: "Space between windows")
 
                     VStack(alignment: .leading, spacing: 8) {
-                        Button("打开配置文件") { NSWorkspace.shared.open(ConfigStore.url) }
+                        Button("Open Config File") { NSWorkspace.shared.open(ConfigStore.url) }
                             .buttonStyle(SecondaryButton())
-                        Button("查看更多示例") { NSWorkspace.shared.open(URL(string: repoURL + "/tree/main/examples")!) }
+                        Button("More Examples") { NSWorkspace.shared.open(URL(string: repoURL + "/tree/main/examples")!) }
                             .buttonStyle(SecondaryButton())
                     }
                     .padding(.top, 4)
@@ -341,12 +342,12 @@ private struct CustomizeStep: View {
             Spacer(minLength: 0)
             HStack(alignment: .center, spacing: 12) {
                 Image(systemName: "sparkles").foregroundStyle(Color.accentColor)
-                Text("想改得更彻底?整个 App 是约一千五百行、没有依赖的 Swift。Fork 之后把仓库交给你的 AI 编程助手,告诉它你想要什么。")
+                Text("Want more? Paneful is about 1,500 lines of Swift with no dependencies. Fork it, hand the repo to your AI coding agent, and say what you want.")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 8)
-                Toggle("开机启动", isOn: Binding(get: { model.launchAtLogin }, set: { model.setLaunchAtLogin($0) }))
+                Toggle("Launch at login", isOn: Binding(get: { model.launchAtLogin }, set: { model.setLaunchAtLogin($0) }))
                     .toggleStyle(.switch)
                     .controlSize(.small)
                     .font(.system(size: 12))
@@ -367,7 +368,7 @@ private struct Explain: View {
     }
 }
 
-// MARK: - 公共部件
+// MARK: - Shared pieces
 
 private struct StepHeader: View {
     let title: String, subtitle: String
@@ -400,7 +401,7 @@ struct SecondaryButton: ButtonStyle {
     }
 }
 
-// MARK: - 窗口
+// MARK: - Window
 
 final class WelcomeWindowController: NSObject, NSWindowDelegate {
     private var window: NSWindow?

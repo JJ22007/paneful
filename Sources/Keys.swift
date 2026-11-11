@@ -1,5 +1,5 @@
-// 快捷键:把 "ctrl+alt+left" 这样的字符串解析成系统能注册的全局热键。
-// 用的是 Carbon 的 RegisterEventHotKey,它不需要任何额外权限。
+// Shortcuts: parse strings like "ctrl+alt+left" into global hotkeys the system can register.
+// Uses Carbon's RegisterEventHotKey, which needs no extra permission.
 
 import AppKit
 import Carbon.HIToolbox
@@ -8,10 +8,10 @@ struct KeyCombo {
     let code: UInt32
     let carbonMods: UInt32
     let cocoaMods: NSEvent.ModifierFlags
-    let menuEquivalent: String  // 给 NSMenuItem 显示用
-    let pretty: String          // 例如 ⌃⌥←
+    let menuEquivalent: String  // shown by NSMenuItem
+    let pretty: String          // e.g. ⌃⌥←
 
-    /// 键名 → (虚拟键码, 菜单字符, 显示符号)
+    /// Key name → (virtual key code, menu character, display symbol)
     static let keys: [String: (Int, String, String)] = {
         var t: [String: (Int, String, String)] = [
             "left": (kVK_LeftArrow, "\u{F702}", "←"), "right": (kVK_RightArrow, "\u{F703}", "→"),
@@ -39,10 +39,10 @@ struct KeyCombo {
         return t
     }()
 
-    /// 解析 "ctrl+alt+left"。修饰键:ctrl / alt(opt) / shift / cmd。至少要有一个修饰键。
+    /// Parse "ctrl+alt+left". Modifiers: ctrl / alt (opt) / shift / cmd. At least one modifier is required.
     static func parse(_ s: String) -> KeyCombo? {
         let raw = s.lowercased().replacingOccurrences(of: " ", with: "")
-        // 允许用 "ctrl+alt+=" 或 "ctrl+alt++" 这样的写法
+        // Allow "ctrl+alt+=" and "ctrl+alt++"
         var parts = raw.split(separator: "+", omittingEmptySubsequences: true).map(String.init)
         if raw.hasSuffix("++") || raw == "+" { parts.append("=") }
         guard let keyName = parts.popLast(), let key = keys[keyName] else { return nil }
@@ -71,14 +71,14 @@ final class HotKeys {
     private var installed = false
     private var nextID: UInt32 = 1
 
-    /// 注销所有热键(重新载入配置前调用)
+    /// Unregister every hotkey (called before reloading the config)
     func reset() {
         refs.forEach { UnregisterEventHotKey($0) }
         refs = []
         handlers = [:]
     }
 
-    /// 注册一个全局热键。返回 false 表示这个组合已经被别的 App 占用了。
+    /// Register a global hotkey. Returns false when another app already owns the combination.
     @discardableResult
     func add(_ combo: KeyCombo, _ handler: @escaping () -> Void) -> Bool {
         if !installed {

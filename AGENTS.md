@@ -4,31 +4,32 @@ Instructions for AI coding agents working in this repository. Humans are welcome
 
 ## What this is
 
-Fenping is a macOS menu bar app that moves and resizes windows with global hotkeys. It is intentionally small so that a person can fork it and have an agent reshape it into their own tool. Favor small, readable changes over abstractions.
+Paneful is a macOS menu bar app that moves and resizes windows with global hotkeys. It is intentionally small so that a person can fork it and have an agent reshape it into their own tool. Favor small, readable changes over abstractions.
 
 - Language: Swift, compiled with `swiftc` directly. No Xcode project, no Swift Package, no third-party dependencies. Keep it that way.
 - Minimum macOS: 13.
-- UI language: Chinese. User-facing strings and code comments are in Chinese; keep new ones consistent unless the user asks to translate.
+- Language: English for the UI, code comments, commit messages and docs. `README.zh-CN.md` is a translation of the README; update it when the README changes in substance.
 
 ## Build, test, run
 
 ```bash
-bash build.sh            # compile to build/Fenping.app and run the self-test
+bash build.sh            # compile to build/Paneful.app and run the self-test
 bash build.sh install    # also copy to ~/Applications and launch
 bash build.sh snapshot   # re-render the welcome screens to docs/welcome-*.png
+bash scripts/setup-signing.sh   # one-time: stable signing identity (user runs this)
 ```
 
-The self-test (`Fenping --selftest`) covers geometry, key parsing, config decoding and drag zones. It runs on every build and the build fails if it fails. Add a check there whenever you add an action, a config field, or a layout rule.
+The self-test (`Paneful --selftest`) covers geometry, key parsing, config decoding and drag zones. It runs on every build and the build fails if it fails. Add a check there whenever you add an action, a config field, or a layout rule.
 
-`Fenping --check <file>` validates a config file. Every file in `examples/` must pass it.
+`Paneful --check <file>` validates a config file. Every file in `examples/` must pass it.
 
 ## What you cannot verify yourself
 
-Moving real windows requires the Accessibility permission, which only the user can grant in System Settings. An ad-hoc signed rebuild invalidates the previous grant, so after `bash build.sh install` the user usually has to remove and re-add Fenping in the Accessibility list (or run `tccutil reset Accessibility local.fenping`). Tell the user this instead of claiming the change was tested end to end. Do not try to change that permission yourself.
+Moving real windows requires the Accessibility permission, which only the user can grant in System Settings. The grant is tied to the code signature. With an ad-hoc signature every rebuild invalidates it, while the switch in System Settings can still look on. `scripts/setup-signing.sh` fixes this for good by creating a local self-signed identity that `build.sh` then uses automatically; it writes to the user's login keychain, so ask the user to run it rather than running it yourself. Without it, after `bash build.sh install` the user has to remove and re-add Paneful in the Accessibility list (or run `tccutil reset Accessibility io.github.paneful`). Say this plainly instead of claiming a change was tested end to end, and never try to grant the permission yourself.
 
 What you can verify: the self-test, `--check`, and the welcome screen snapshots (open the PNGs in `docs/` and look at them after changing `Welcome.swift`).
 
-Runtime log: `~/Library/Logs/Fenping.log`.
+Runtime log: `~/Library/Logs/Paneful.log`.
 
 ## Layout of the code
 
@@ -52,7 +53,7 @@ All sources are in `Sources/`.
 
 - **Coordinates.** Geometry and the AX API use a top-left origin with y pointing down. `NSScreen` uses a bottom-left origin. Convert with `flip(_:)` at the boundary and nowhere else.
 - **Unit rects.** Positions are expressed as fractions of the screen's visible area (`0...1`), then turned into points by `screenRect(unit:visible:gap:)`. New positions should go through it so gaps keep working.
-- **The config file is the single source of truth** (`~/.config/fenping/config.json`). Menu toggles write to it through `ConfigStore.update`. Do not add a second settings store.
+- **The config file is the single source of truth** (`~/.config/paneful/config.json`). Menu toggles write to it through `ConfigStore.update`. Do not add a second settings store.
 - **Config must stay forgiving.** Every field is optional when decoding. A bad entry produces a warning from `Config.warnings()` and is skipped; it must never crash the app or block the rest of the config.
 - **Hotkeys are re-registered from scratch** on every config change in `AppDelegate.applyConfig()`.
 
@@ -76,4 +77,4 @@ Edit `Welcome.swift`, then run `bash build.sh snapshot` and look at the PNGs.
 
 ## When you fork
 
-Change `repoURL` in `Sources/main.swift` and the clone URL in `README.md` to the new repository. If you rename the app, also change the bundle identifier in `build.sh` and the config path in `Config.swift`.
+Change `repoURL` in `Sources/main.swift` and the clone URL in both READMEs to the new repository. If you rename the app, also change the bundle identifier and app name in `build.sh`, the identity name in `scripts/setup-signing.sh`, and the config path in `Config.swift`.

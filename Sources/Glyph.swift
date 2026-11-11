@@ -1,10 +1,10 @@
-// 布局小图标:一个屏幕轮廓,里面把目标区域涂实。
-// 菜单和欢迎界面共用,自定义布局也能自动得到图标。
+// Layout glyphs: a screen outline with the target region filled in.
+// Shared by the menu and the welcome guide, so custom layouts get an icon for free.
 
 import AppKit
 import SwiftUI
 
-/// 菜单里用的模板图标(自动适配深浅色)
+/// Template image for menus (adapts to light and dark)
 func glyphImage(_ units: [CGRect], size: NSSize = NSSize(width: 18, height: 13)) -> NSImage {
     let img = NSImage(size: size, flipped: true) { rect in
         let frame = rect.insetBy(dx: 0.75, dy: 0.75)
@@ -25,7 +25,7 @@ func glyphImage(_ units: [CGRect], size: NSSize = NSSize(width: 18, height: 13))
     return img
 }
 
-/// 欢迎界面里用的大号版本
+/// Larger version for the welcome guide
 struct LayoutGlyph: View {
     var units: [CGRect]
     var tint: Color = .accentColor

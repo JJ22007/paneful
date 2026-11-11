@@ -1,5 +1,5 @@
-// 对 macOS Accessibility API 的薄封装:找到窗口、读位置、改位置。
-// 这是整个 App 里唯一需要「辅助功能」权限的部分。
+// A thin wrapper over the macOS Accessibility API: find windows, read frames, set frames.
+// This is the only part of the app that needs the Accessibility permission.
 
 import AppKit
 import ApplicationServices
@@ -7,7 +7,7 @@ import ApplicationServices
 enum AX {
     static var trusted: Bool { AXIsProcessTrusted() }
 
-    /// 弹出系统的授权引导
+    /// Show the system prompt that asks for the permission
     static func promptForTrust() {
         _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
     }
@@ -35,7 +35,7 @@ enum AX {
     }
 
     static func setFrame(_ r: CGRect, of w: AXUIElement) {
-        // 有些 App(Chrome / Electron 开了辅助增强界面)会让窗口动画很慢,临时关掉
+        // Some apps (Chrome, Electron) animate slowly while AXEnhancedUserInterface is on; switch it off briefly
         var pid: pid_t = 0
         AXUIElementGetPid(w, &pid)
         let appEl = AXUIElementCreateApplication(pid)
@@ -45,7 +45,7 @@ enum AX {
 
         var pt = r.origin, sz = r.size
         let pv = AXValueCreate(.cgPoint, &pt)!, sv = AXValueCreate(.cgSize, &sz)!
-        // 尺寸 → 位置 → 尺寸:跨屏移动时第一次设尺寸可能被旧屏幕限制
+        // Size → position → size: across displays the first resize can be clamped by the old screen
         AXUIElementSetAttributeValue(w, kAXSizeAttribute as CFString, sv)
         AXUIElementSetAttributeValue(w, kAXPositionAttribute as CFString, pv)
         AXUIElementSetAttributeValue(w, kAXSizeAttribute as CFString, sv)
@@ -58,7 +58,7 @@ enum AX {
         AXUIElementSetAttributeValue(w, kAXPositionAttribute as CFString, AXValueCreate(.cgPoint, &pt)!)
     }
 
-    /// 当前桌面上所有可见的普通窗口,按从前到后的顺序
+    /// Every visible standard window on the current desktop, front to back
     static func windowsFrontToBack() -> [(window: AXUIElement, frame: CGRect)] {
         let opts: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
         guard let list = CGWindowListCopyWindowInfo(opts, kCGNullWindowID) as? [[String: Any]] else { return [] }
@@ -80,7 +80,7 @@ enum AX {
 
     private static func standardWindows(_ pid: pid_t) -> [(window: AXUIElement, frame: CGRect)] {
         let appEl = AXUIElementCreateApplication(pid)
-        AXUIElementSetMessagingTimeout(appEl, 0.5)  // 卡死的 App 不要拖住我们
+        AXUIElementSetMessagingTimeout(appEl, 0.5)  // don't let a hung app stall us
         var v: CFTypeRef?
         guard AXUIElementCopyAttributeValue(appEl, kAXWindowsAttribute as CFString, &v) == .success,
               let wins = v as? [AXUIElement] else { return [] }
@@ -98,9 +98,9 @@ enum AX {
     }
 }
 
-/// 写一行到 ~/Library/Logs/Fenping.log,方便排查
+/// Append a line to ~/Library/Logs/Paneful.log, for troubleshooting
 func logLine(_ msg: String) {
-    let url = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/Fenping.log")
+    let url = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/Paneful.log")
     let line = "\(ISO8601DateFormatter().string(from: Date())) \(msg)\n"
     if let h = try? FileHandle(forWritingTo: url) { h.seekToEndOfFile(); h.write(line.data(using: .utf8)!); try? h.close() }
     else { try? line.write(to: url, atomically: true, encoding: .utf8) }

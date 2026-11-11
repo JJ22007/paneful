@@ -1,13 +1,13 @@
-// 几何计算:全部是纯函数,没有副作用,可以放心改。
-// 坐标系:左上角原点、y 向下(和 Accessibility API 一致)。
-// "单位矩形"指 0...1 的比例坐标,(0, 0, 0.5, 1) 就是左半屏。
+// Geometry: pure functions with no side effects, safe to change.
+// Coordinates: top-left origin, y pointing down (same as the Accessibility API).
+// A "unit rect" is in 0...1 fractions of the screen: (0, 0, 0.5, 1) is the left half.
 
 import AppKit
 
-/// 左/右半屏连按时的宽度循环:1/2 → 2/3 → 1/3
+/// Widths cycled through when left/right half is pressed repeatedly: 1/2 → 2/3 → 1/3
 let halfCycle: [CGFloat] = [1.0 / 2, 2.0 / 3, 1.0 / 3]
 
-/// 内置动作对应的单位矩形。返回 nil 表示这个动作不是"摆到固定位置"(还原、居中、跨屏等)。
+/// The unit rect of a built-in action. nil means the action is not a fixed position (restore, center, displays…).
 func unitRect(for a: Action, cycle: Int = 0) -> CGRect? {
     switch a {
     case .leftHalf: return CGRect(x: 0, y: 0, width: halfCycle[cycle % 3], height: 1)
@@ -31,7 +31,7 @@ func unitRect(for a: Action, cycle: Int = 0) -> CGRect? {
     }
 }
 
-/// 把单位矩形换算成屏幕上的实际矩形。gap 是窗口之间、窗口与屏幕边缘之间的间距。
+/// Turn a unit rect into a real rect on screen. gap is the space between windows and around the screen edge.
 func screenRect(unit u: CGRect, visible v: CGRect, gap: CGFloat = 0) -> CGRect {
     let area = v.insetBy(dx: gap / 2, dy: gap / 2)
     return CGRect(x: area.minX + u.minX * area.width, y: area.minY + u.minY * area.height,
@@ -47,8 +47,8 @@ func targetRect(_ a: Action, visible v: CGRect, current c: CGRect, cycle: Int = 
     return unitRect(for: a, cycle: cycle).map { screenRect(unit: $0, visible: v, gap: gap) }
 }
 
-/// 一键排列的默认规则:n 个窗口每行放几个。
-/// 1~3 个排一行;4~6 个排两行;更多排三行。多出来的窗口优先放在上面的行。
+/// Default rule for "tile all": how many of n windows go in each row.
+/// 1–3 windows share one row, 4–6 use two rows, more use three. Extra windows go to the upper rows first.
 func defaultTileRows(_ n: Int) -> [Int] {
     guard n > 0 else { return [] }
     if n <= 3 { return [n] }
@@ -67,7 +67,7 @@ func tileLayout(rows: [Int], visible v: CGRect, gap: CGFloat = 0) -> [CGRect] {
     return out
 }
 
-/// 把窗口按相对比例从一个屏幕搬到另一个屏幕
+/// Move a window to another screen, keeping its relative position and size
 func remap(_ c: CGRect, from a: CGRect, to b: CGRect) -> CGRect {
     let w = min(c.width / a.width, 1) * b.width, h = min(c.height / a.height, 1) * b.height
     let x = b.minX + (c.minX - a.minX) / a.width * b.width
@@ -79,7 +79,7 @@ func nearlyEqual(_ a: CGRect, _ b: CGRect, tol: CGFloat = 3) -> Bool {
     abs(a.minX - b.minX) <= tol && abs(a.minY - b.minY) <= tol && abs(a.width - b.width) <= tol && abs(a.height - b.height) <= tol
 }
 
-/// Cocoa 坐标(左下原点)与 AX 坐标(左上原点)互转。这个变换是自反的。
+/// Convert between Cocoa (bottom-left origin) and AX (top-left origin) coordinates. The transform is its own inverse.
 func flip(_ r: CGRect) -> CGRect {
     let h = NSScreen.screens.first?.frame.height ?? 0
     return CGRect(x: r.minX, y: h - r.maxY, width: r.width, height: r.height)
