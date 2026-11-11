@@ -42,6 +42,8 @@ struct Config: Codable, Equatable {
     var gap: Double = 0
     /// Snap windows dragged to a screen edge
     var dragSnap: Bool = false
+    /// Off: pressing left/right half again cycles its width. On: it carries the window to the next display instead.
+    var crossDisplays: Bool = false
     /// Action name → shortcut. An empty string "" removes the shortcut.
     var shortcuts: [String: String] = Config.defaultShortcuts
     /// User-defined positions
@@ -57,6 +59,7 @@ struct Config: Codable, Equatable {
         let c = try d.container(keyedBy: CodingKeys.self)
         gap = try c.decodeIfPresent(Double.self, forKey: .gap) ?? 0
         dragSnap = try c.decodeIfPresent(Bool.self, forKey: .dragSnap) ?? false
+        crossDisplays = try c.decodeIfPresent(Bool.self, forKey: .crossDisplays) ?? false
         // Users only write the entries they want to change; the rest keep their defaults
         let user = try c.decodeIfPresent([String: String].self, forKey: .shortcuts) ?? [:]
         shortcuts = Config.defaultShortcuts.merging(user) { _, new in new }

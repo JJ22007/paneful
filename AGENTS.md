@@ -58,6 +58,7 @@ All sources are in `Sources/`.
 - **Unit rects.** Positions are expressed as fractions of the screen's visible area (`0...1`), then turned into points by `screenRect(unit:visible:gap:)`. New positions should go through it so gaps keep working.
 - **The config file is the single source of truth** (`~/.config/paneful/config.json`). Menu toggles write to it through `ConfigStore.update`. Do not add a second settings store.
 - **Config must stay forgiving.** Every field is optional when decoding. A bad entry produces a warning from `Config.warnings()` and is skipped; it must never crash the app or block the rest of the config.
+- **Left/right half across displays.** A repeated press cycles widths. With `crossDisplays` on and more than one display it moves the window to the next display instead (`neighborDisplay` in `Geometry.swift`, used in `WindowManager.perform`).
 - **Hotkeys are re-registered from scratch** on every config change in `AppDelegate.applyConfig()`.
 
 ## Common tasks

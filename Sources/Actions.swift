@@ -31,8 +31,8 @@ enum Action: String, CaseIterable {
         case .almostMaximize: return "Almost Maximize"
         case .center: return "Center"
         case .restore: return "Restore"
-        case .nextDisplay: return "Next Display"
-        case .prevDisplay: return "Previous Display"
+        case .nextDisplay: return "Walk Right"
+        case .prevDisplay: return "Walk Left"
         }
     }
 

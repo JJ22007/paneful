@@ -75,6 +75,23 @@ func remap(_ c: CGRect, from a: CGRect, to b: CGRect) -> CGRect {
     return CGRect(x: min(max(x, b.minX), b.maxX - w), y: min(max(y, b.minY), b.maxY - h), width: w, height: h).integral
 }
 
+/// True when the window already hugs the edge it is walking toward (and only that edge),
+/// which means the next step of a walk leaves this display.
+func onOuterHalf(_ c: CGRect, visible v: CGRect, right: Bool, tol: CGFloat = 30) -> Bool {
+    let atLeft = abs(c.minX - v.minX) <= tol, atRight = abs(c.maxX - v.maxX) <= tol
+    return right ? (atRight && !atLeft) : (atLeft && !atRight)
+}
+
+/// The display one step to the left or right of frames[i], or nil with a single display.
+/// Displays are ordered left to right (top to bottom when stacked) and the order wraps around,
+/// so the key keeps working however the displays are arranged.
+func neighborDisplay(of i: Int, in frames: [CGRect], left: Bool) -> Int? {
+    guard frames.count > 1 else { return nil }
+    let order = frames.indices.sorted { (frames[$0].minX, frames[$0].minY) < (frames[$1].minX, frames[$1].minY) }
+    guard let at = order.firstIndex(of: i) else { return nil }
+    return order[(at + (left ? order.count - 1 : 1)) % order.count]
+}
+
 func nearlyEqual(_ a: CGRect, _ b: CGRect, tol: CGFloat = 3) -> Bool {
     abs(a.minX - b.minX) <= tol && abs(a.minY - b.minY) <= tol && abs(a.width - b.width) <= tol && abs(a.height - b.height) <= tol
 }

@@ -65,9 +65,11 @@ The script creates a self-signed certificate in your login keychain, used only t
 | `⌃⌥M` | Almost maximize (90%) | `almostMaximize` |
 | `⌃⌥C` | Center | `center` |
 | `⌃⌥⌫` | Restore the previous frame | `restore` |
-| `⌃⌥⌘→` `⌃⌥⌘←` | Next, previous display | `nextDisplay` `prevDisplay` |
+| `⌃⌥⌘→` `⌃⌥⌘←` | Walk right, walk left: one half at a time, across every display | `nextDisplay` `prevDisplay` |
 
 Press left half or right half again to cycle its width: 1/2 → 2/3 → 1/3.
+
+**Walking across displays.** `⌃⌥⌘→` moves a window one half to the right each time: left half, right half, then the left half of the next display, then its right half, and so on. `⌃⌥⌘←` walks back. Displays are taken left to right and wrap around, so it also works when one sits above the other. If you would rather do this with the plain half keys and give up width cycling, set `crossDisplays` to `true`.
 
 ## Make it yours
 
@@ -96,6 +98,7 @@ The config lives at `~/.config/paneful/config.json`. Open it from the menu bar w
 |---|---|
 | `gap` | Space between windows and around the screen edge, in points. |
 | `dragSnap` | Snap windows dragged to a screen edge. Turn off macOS's own edge tiling first (System Settings → Desktop & Dock), or you will see two previews. |
+| `crossDisplays` | Off by default. When on and more than one display is connected, pressing left or right half again moves the window to the next display instead of cycling widths. |
 | `shortcuts` | Action name → shortcut. Use `""` to remove a shortcut. |
 | `custom` | Your own positions. `x`, `y`, `w`, `h` are fractions of the screen from 0 to 1, with the origin at the top left. `key` is optional. |
 | `tile.max` | The most windows "tile all" will arrange. The rest stay put; the most recently used win. |

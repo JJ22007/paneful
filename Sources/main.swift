@@ -37,6 +37,18 @@ func selfTest() -> Int32 {
     check("remap across displays", remap(CGRect(x: 0, y: 33, width: 756, height: 900), from: v, to: CGRect(x: 1512, y: 0, width: 2560, height: 1440)),
           CGRect(x: 1512, y: 0, width: 1280, height: 1440))
 
+    let displays = [CGRect(x: 0, y: 0, width: 1512, height: 982), CGRect(x: 1512, y: -200, width: 2560, height: 1440), CGRect(x: -1920, y: 0, width: 1920, height: 1080)]
+    expect("neighbor display: left / right / wraps", neighborDisplay(of: 0, in: displays, left: true) == 2
+        && neighborDisplay(of: 0, in: displays, left: false) == 1 && neighborDisplay(of: 1, in: displays, left: false) == 2
+        && neighborDisplay(of: 1, in: displays, left: true) == 0)
+    expect("neighbor display: stacked pair swaps, single display has none", neighborDisplay(of: 0, in: [displays[0], CGRect(x: -373, y: -1440, width: 2560, height: 1440)], left: false) == 1
+        && neighborDisplay(of: 0, in: [displays[0]], left: true) == nil)
+
+    let lh = CGRect(x: 0, y: 33, width: 756, height: 900), rh = CGRect(x: 756, y: 33, width: 756, height: 900)
+    expect("walk: right half leaves the display going right, left half and maximized do not",
+           onOuterHalf(rh, visible: v, right: true) && !onOuterHalf(lh, visible: v, right: true) && !onOuterHalf(v, visible: v, right: true)
+           && onOuterHalf(lh, visible: v, right: false) && !onOuterHalf(c, visible: v, right: false))
+
     expect("tile rows for 2/3/4/5/6", [2, 3, 4, 5, 6].map(defaultTileRows) == [[2], [3], [2, 2], [3, 2], [3, 3]])
     expect("tile rows for 7/8/10", [7, 8, 10].map(defaultTileRows) == [[3, 2, 2], [3, 3, 2], [4, 3, 3]])
     check("tile 4, bottom right", tileLayout(rows: [2, 2], visible: v)[3], CGRect(x: 756, y: 483, width: 756, height: 450))
@@ -51,6 +63,7 @@ func selfTest() -> Int32 {
 
     func decode(_ json: String) -> Config? { try? JSONDecoder().decode(Config.self, from: Data(json.utf8)) }
     expect("config: empty object equals defaults", decode("{}") == Config())
+    expect("config: crossDisplays defaults to off and can be switched on", decode("{}")?.crossDisplays == false && decode(#"{"crossDisplays": true}"#)?.crossDisplays == true)
     let partial = decode(#"{"gap": 8, "shortcuts": {"maximize": "ctrl+alt+m", "center": ""}, "tile": {"rows": {"5": [2, 3]}}}"#)
     expect("config: partial file keeps other defaults", partial?.gap == 8 && partial?.shortcuts["maximize"] == "ctrl+alt+m"
         && partial?.shortcuts["leftHalf"] == "ctrl+alt+left" && partial?.tile.rows(for: 5) == [2, 3] && partial?.tile.rows(for: 4) == [2, 2])

@@ -40,15 +40,44 @@ final class WindowManager {
             if let r = saved[w] { AX.setFrame(r, of: w); saved[w] = nil; lastSet[w] = nil }
             lastKey = nil
         case .nextDisplay, .prevDisplay:
-            let screens = NSScreen.screens
-            guard screens.count > 1, let i = screens.firstIndex(of: scr) else { NSSound.beep(); return }
-            let j = (i + (action == .nextDisplay ? 1 : screens.count - 1)) % screens.count
-            let dest = flip(screens[j].visibleFrame)
-            place(w, from: cur, to: remap(cur, from: visible, to: dest), within: dest, key: action.rawValue)
+            // Walk the window one half at a time across every display:
+            // left half → right half → next display's left half → its right half → …
+            let right = action == .nextDisplay
+            var dest = visible
+            var half: Action = right ? .rightHalf : .leftHalf
+            if onOuterHalf(cur, visible: visible, right: right, tol: 30 + gap) {
+                guard let i = NSScreen.screens.firstIndex(of: scr),
+                      let j = neighborDisplay(of: i, in: NSScreen.screens.map(\.frame), left: !right) else { NSSound.beep(); return }
+                dest = flip(NSScreen.screens[j].visibleFrame)
+                half = right ? .leftHalf : .rightHalf
+            }
+            guard let t = targetRect(half, visible: dest, current: cur, gap: gap) else { return }
+            place(w, from: cur, to: t, within: dest, key: action.rawValue)
         default:
             // Same key again on the same window → next step in the cycle (only the halves have steps today)
-            let repeated = lastKey == action.rawValue && lastWindow.map { CFEqual($0, w) } == true
+            var repeated = lastKey == action.rawValue && lastWindow.map { CFEqual($0, w) } == true
                 && lastSet[w].map { nearlyEqual($0, cur, tol: 30) } == true
+            // The window may already sit on one of this action's steps without this key having put it
+            // there (another key, the mouse, tile all). Continue from that step so no press is wasted.
+            if !repeated, let k = (0..<halfCycle.count).first(where: { i in
+                targetRect(action, visible: visible, current: cur, cycle: i, gap: gap).map { nearlyEqual($0, cur, tol: 30) } == true
+            }) {
+                repeated = true
+                cycle = k
+            }
+            // With a display on that side, the second press of left/right half carries the window
+            // over to it: left half → right half of the display on the left, and the other way round.
+            if repeated, config.crossDisplays, action == .leftHalf || action == .rightHalf,
+               let i = NSScreen.screens.firstIndex(of: scr),
+               let j = neighborDisplay(of: i, in: NSScreen.screens.map(\.frame), left: action == .leftHalf) {
+                let dest = flip(NSScreen.screens[j].visibleFrame)
+                let far: Action = action == .leftHalf ? .rightHalf : .leftHalf
+                guard let t = targetRect(far, visible: dest, current: cur, gap: gap) else { return }
+                // A different key, so the next press lands on this display's own half instead of crossing again
+                place(w, from: cur, to: t, within: dest, key: action.rawValue + ":crossed")
+                cycle = 0
+                return
+            }
             cycle = repeated ? cycle + 1 : 0
             guard let t = targetRect(action, visible: visible, current: cur, cycle: cycle, gap: gap) else { return }
             place(w, from: cur, to: t, within: visible, key: action.rawValue)
