@@ -200,6 +200,8 @@ After changing the guide, run `bash build.sh snapshot` to re-render each step in
 
 The shortcuts and overall feel follow [Rectangle](https://github.com/rxhanson/Rectangle). If you want a mature tiling tool that just works, use it; it's excellent. Paneful has a different goal: to be small enough that you can make it entirely your own.
 
+The menu bar icon is from [Lucide](https://lucide.dev) (ISC, see [LICENSES/lucide.txt](LICENSES/lucide.txt)).
+
 ## License
 
 [MIT](LICENSE)

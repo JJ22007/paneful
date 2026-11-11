@@ -15,7 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationDidFinishLaunching(_ note: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        statusItem.button?.image = glyphImage([CGRect(x: 0, y: 0, width: 0.46, height: 1)], size: NSSize(width: 19, height: 14))
+        statusItem.button?.image = menuBarIcon()
         statusItem.button?.toolTip = "Paneful"
         let menu = NSMenu()
         menu.delegate = self

@@ -160,6 +160,8 @@ Run `paneful help` to see the commands. Act right away, then reply in one short 
 
 快捷键和整体手感参考了 [Rectangle](https://github.com/rxhanson/Rectangle)。如果你想要一个成熟、开箱即用的分屏工具,直接用它就很好。Paneful 的目标不一样:小到你可以把它完全变成自己的。
 
+菜单栏图标来自 [Lucide](https://lucide.dev)(ISC 许可,见 [LICENSES/lucide.txt](LICENSES/lucide.txt))。
+
 ## License
 
 [MIT](LICENSE)
