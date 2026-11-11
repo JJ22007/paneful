@@ -25,6 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         store.onChange = { [weak self] in self?.applyConfig() }
         store.start()
         applyConfig()
+        CLI.startServer()
         logLine("launch accessibility=\(AX.trusted) takenShortcuts=\(takenKeys.sorted())")
 
         if !UserDefaults.standard.bool(forKey: "onboarded") {

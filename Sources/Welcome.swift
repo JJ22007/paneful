@@ -342,7 +342,7 @@ private struct CustomizeStep: View {
             Spacer(minLength: 0)
             HStack(alignment: .center, spacing: 12) {
                 Image(systemName: "sparkles").foregroundStyle(Color.accentColor)
-                Text("Want more? Paneful is about 1,500 lines of Swift with no dependencies. Fork it, hand the repo to your AI coding agent, and say what you want.")
+                Text("Want more? Paneful is about 1,700 lines of Swift with no dependencies. Fork it, hand the repo to your AI coding agent, and say what you want.")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

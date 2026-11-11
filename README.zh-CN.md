@@ -10,11 +10,11 @@
 </p>
 
 <p align="center">
-  <img src="docs/welcome-1.png" width="49%" alt="欢迎页">
-  <img src="docs/welcome-3.png" width="49%" alt="快捷键一览">
+  <img src="docs/demo.gif" width="100%" alt="AI agent 一句话整理杂乱的桌面">
 </p>
+<p align="center"><sub>对 Claude Code 说一句话,杂乱的桌面瞬间归位。真实录屏,agent 思考的几秒做了加速。</sub></p>
 
-Paneful 是一个菜单栏 App,用键盘把窗口摆到位。全部代码约 1500 行 Swift,没有第三方依赖,也不需要 Xcode 工程。想改的东西基本都在一份 JSON 里;JSON 改不了的,自己或者让 AI 编程助手改几行代码就行。
+Paneful 是一个菜单栏 App,用键盘把窗口摆到位。全部代码约 1700 行 Swift,没有第三方依赖,也不需要 Xcode 工程。想改的东西基本都在一份 JSON 里;JSON 改不了的,自己或者让 AI 编程助手改几行代码就行。
 
 > 界面是英文的。想要中文界面?这正好是一个很适合交给 AI 助手的改造任务,见下文「做一个属于你自己的」。
 
@@ -23,6 +23,7 @@ Paneful 是一个菜单栏 App,用键盘把窗口摆到位。全部代码约 150
 - **键盘分屏**:半屏、四分之一、三分之一、三分之二、最大化、居中、还原、跨显示器。默认快捷键与 [Rectangle](https://github.com/rxhanson/Rectangle) 一致。
 - **一键排列**:按 `⌃⌥A`,桌面上所有窗口自动铺开。2 个左右分,3 个三等分,4 个田字格,5 个上三下二,6 个 3×2。规则可以自己改。
 - **自定义位置**:用屏幕比例描述任意位置,绑上快捷键。
+- **可以交给 agent**:自带 `paneful` 命令行,脚本和 AI agent 可以列出、摆放、排列窗口。
 - **一份配置,保存即生效**:改完保存,一两秒内自动应用。写错了会在菜单里提示,不会把 App 搞坏。
 - **拖边吸附**:可选,带实时预览。
 - **首次启动引导**:四步完成授权、认识快捷键、学会定制。
@@ -103,6 +104,35 @@ bash scripts/setup-signing.sh
 **写错了怎么办**:菜单里会出现 "Config Problems",点开能看到具体哪一项有问题。那一项会被跳过,其余照常工作。
 
 [`examples/`](examples) 里有几份可以直接抄的配置:极简、写代码、带鱼屏、Vim 键位、只排四个。
+
+## 让 agent 来操作
+
+Paneful 自带命令行接口。任何能执行 shell 命令的东西都可以替你摆窗口:脚本、启动器,或者 AI agent。
+
+```bash
+# 只需一次:把命令放进 PATH
+ln -s ~/Applications/Paneful.app/Contents/MacOS/Paneful /usr/local/bin/paneful
+```
+
+| 命令 | 作用 |
+|---|---|
+| `paneful list` | 列出所有窗口:App、标题、位置(屏幕比例) |
+| `paneful tile` | 把所有窗口排成网格 |
+| `paneful place 0 0 0.6 1 --app Safari` | 把窗口放到任意位置,四个数字是 `x y w h`,范围 0~1 |
+| `paneful run leftHalf --title notes` | 对指定窗口执行内置动作 |
+| `paneful fullscreen off --app Keynote` | 进入或退出系统全屏 |
+| `paneful actions` | 列出动作名 |
+
+`--app` 匹配 App 名或 bundle id,`--title` 匹配窗口标题,都是不分大小写的子串匹配;都不写就作用于当前窗口。用 `&&` 串起来可以一次摆好整个布局。
+
+给你的 agent 几行说明(写进 `CLAUDE.md`、系统提示词,或者直接粘贴),之后正常说话就行:
+
+```markdown
+You arrange windows on this Mac with the `paneful` command line tool.
+Run `paneful help` to see the commands. Act right away, then reply in one short sentence.
+```
+
+命令行是和正在运行的 App 通信的,所以 Paneful 需要开着并且已有辅助功能权限;agent 本身不需要任何特殊权限。
 
 ## 做一个属于你自己的
 

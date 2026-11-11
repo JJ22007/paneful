@@ -53,6 +53,34 @@ enum AX {
         if hadEnhanced { AXUIElementSetAttributeValue(appEl, "AXEnhancedUserInterface" as CFString, kCFBooleanTrue) }
     }
 
+    /// Enter or leave native fullscreen for every window of the matching apps. Returns how many windows changed.
+    static func setFullScreen(_ on: Bool, app name: String) -> Int {
+        var n = 0
+        for app in NSWorkspace.shared.runningApplications where app.activationPolicy == .regular {
+            guard (app.localizedName ?? "").localizedCaseInsensitiveContains(name)
+                || (app.bundleIdentifier ?? "").localizedCaseInsensitiveContains(name) else { continue }
+            let el = AXUIElementCreateApplication(app.processIdentifier)
+            var v: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(el, kAXWindowsAttribute as CFString, &v) == .success, let wins = v as? [AXUIElement] else { continue }
+            for w in wins {
+                var cur: CFTypeRef?
+                guard AXUIElementCopyAttributeValue(w, "AXFullScreen" as CFString, &cur) == .success, (cur as? Bool) == !on else { continue }
+                if AXUIElementSetAttributeValue(w, "AXFullScreen" as CFString, (on ? kCFBooleanTrue : kCFBooleanFalse)!) == .success { n += 1 }
+            }
+        }
+        return n
+    }
+
+    /// App name and window title, for `paneful list` and --app / --title matching
+    static func describe(_ w: AXUIElement) -> (app: String, title: String, bundleID: String) {
+        var pid: pid_t = 0
+        AXUIElementGetPid(w, &pid)
+        var t: CFTypeRef?
+        AXUIElementCopyAttributeValue(w, kAXTitleAttribute as CFString, &t)
+        let app = NSRunningApplication(processIdentifier: pid)
+        return (app?.localizedName ?? "?", (t as? String) ?? "", app?.bundleIdentifier ?? "")
+    }
+
     static func setOrigin(_ p: CGPoint, of w: AXUIElement) {
         var pt = p
         AXUIElementSetAttributeValue(w, kAXPositionAttribute as CFString, AXValueCreate(.cgPoint, &pt)!)

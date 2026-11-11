@@ -3,6 +3,7 @@
 //   Paneful --selftest        test geometry, shortcuts and config handling
 //   Paneful --check <file>    validate a config file
 //   Paneful --snapshot <dir>  render each welcome step to a PNG
+//   Paneful list | tile | run | place | actions   command line interface, see CLI.swift
 
 import AppKit
 import SwiftUI
@@ -107,6 +108,7 @@ func snapshot(to dir: String) -> Int32 {
 }
 
 let args = CommandLine.arguments
+if args.count > 1, CLI.commands.contains(args[1]) { exit(CLI.run(Array(args.dropFirst()))) }
 if args.contains("--selftest") { exit(selfTest()) }
 if let i = args.firstIndex(of: "--check"), args.count > i + 1 { exit(checkConfig(args[i + 1])) }
 if let i = args.firstIndex(of: "--snapshot"), args.count > i + 1 { exit(snapshot(to: args[i + 1])) }

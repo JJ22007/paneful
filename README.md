@@ -9,21 +9,23 @@
   <a href="README.zh-CN.md">简体中文</a> ·
   <a href="#install">Install</a> ·
   <a href="#make-it-yours">Customize</a> ·
+  <a href="#let-an-agent-drive">Agents</a> ·
   <a href="#build-your-own">Build your own</a>
 </p>
 
 <p align="center">
-  <img src="docs/welcome-1.png" width="49%" alt="Welcome screen">
-  <img src="docs/welcome-3.png" width="49%" alt="Shortcut overview">
+  <img src="docs/demo.gif" width="100%" alt="An AI agent tidies a messy desktop with one sentence">
 </p>
+<p align="center"><sub>One sentence to Claude Code, and a messy desktop snaps into place. Real recording; the few seconds the agent spends thinking are sped up.</sub></p>
 
-Paneful is a menu bar app that snaps windows into place with the keyboard. It is about 1,500 lines of Swift with no dependencies and no Xcode project. Everything you might want to change sits in one JSON file, and anything the file can't do is a short edit away, by you or by your AI coding agent.
+Paneful is a menu bar app that snaps windows into place with the keyboard, or on an agent's say-so. It is about 1,700 lines of Swift with no dependencies and no Xcode project. Everything you might want to change sits in one JSON file, and anything the file can't do is a short edit away, by you or by your AI coding agent.
 
 ## Features
 
 - **Keyboard tiling.** Halves, quarters, thirds, two-thirds, maximize, center, restore, and move between displays. The defaults match [Rectangle](https://github.com/rxhanson/Rectangle), so your muscle memory still works.
 - **Tile everything.** Press `⌃⌥A` and every window on the desktop spreads into a grid: two side by side, three in columns, four in quarters, five as three over two, six as 3×2. The rules are yours to change.
 - **Custom positions.** Describe any spot as fractions of the screen and bind it to a key.
+- **Agent-ready.** A `paneful` command lets scripts and AI agents list, place and tile windows, so "put my editor on the left and stack the rest" just works.
 - **One config file, hot reloaded.** Save the file and the change applies within a second or two. Mistakes show up in the menu instead of breaking the app.
 - **Drag to snap.** Optional edge snapping with a live preview.
 - **A proper first run.** A four-step guide handles the permission, teaches the shortcuts, and shows how to customize.
@@ -120,8 +122,42 @@ Copy from [`examples/`](examples):
 | [`four-only.json`](examples/four-only.json) | Tile at most four windows and leave the rest alone |
 
 <p align="center">
-  <img src="docs/welcome-4.png" width="60%" alt="Customize step of the welcome guide">
+  <img src="docs/welcome-1.png" width="49%" alt="Welcome screen">
+  <img src="docs/welcome-4.png" width="49%" alt="Customize step of the welcome guide">
 </p>
+
+## Let an agent drive
+
+Paneful ships with a command line interface. Anything that can run a shell command can arrange your windows: a script, a launcher, or an AI agent.
+
+```bash
+# once: put the command on your PATH
+ln -s ~/Applications/Paneful.app/Contents/MacOS/Paneful /usr/local/bin/paneful
+```
+
+| Command | What it does |
+|---|---|
+| `paneful list` | List every window: app, title, and position as screen fractions |
+| `paneful tile` | Tile all windows into a grid |
+| `paneful place 0 0 0.6 1 --app Safari` | Put a window anywhere. Numbers are `x y w h` from 0 to 1 |
+| `paneful run leftHalf --title notes` | Run any built-in action on a specific window |
+| `paneful fullscreen off --app Keynote` | Enter or leave native fullscreen |
+| `paneful actions` | List the action names |
+
+`--app` matches the app name or bundle id, `--title` the window title, both by case-insensitive substring. Without them a command applies to the focused window. Chain commands with `&&` to build a whole layout in one go.
+
+To get the result in the recording above, give your agent a few lines of context (a `CLAUDE.md`, a system prompt, or just paste it) and then talk to it normally:
+
+```markdown
+You arrange windows on this Mac with the `paneful` command line tool.
+Run `paneful help` to see the commands. Act right away, then reply in one short sentence.
+```
+
+```text
+> My desktop is a mess. Keep this terminal on the left third and arrange the other windows in a neat grid on the right.
+```
+
+The command line tool talks to the running app, so Paneful has to be open and have the Accessibility permission. The agent itself needs no special permission.
 
 ## Build your own
 
@@ -148,6 +184,7 @@ Prefer to do it by hand? Each file has one job:
 | [`DragSnap.swift`](Sources/DragSnap.swift) | Drag-to-edge snapping | change the snap zones |
 | [`App.swift`](Sources/App.swift) | Menu bar icon and menu | change the menu |
 | [`Welcome.swift`](Sources/Welcome.swift) | First-run guide (SwiftUI) | change the onboarding |
+| [`CLI.swift`](Sources/CLI.swift) | The `paneful` command and its server inside the app | add a command |
 | [`Accessibility.swift`](Sources/Accessibility.swift) | System calls that read and move windows | rarely |
 
 After changing the guide, run `bash build.sh snapshot` to re-render each step into `docs/`.

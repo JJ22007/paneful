@@ -56,9 +56,9 @@ final class WindowManager {
     }
 
     /// A position defined under `custom` in the config
-    func perform(_ layout: CustomLayout) {
+    func perform(_ layout: CustomLayout, on window: AXUIElement? = nil) {
         guard AX.trusted else { onUntrusted?(); return }
-        guard let w = AX.focusedWindow(), let cur = AX.frame(of: w), let scr = screen(for: cur) else { NSSound.beep(); return }
+        guard let w = window ?? AX.focusedWindow(), let cur = AX.frame(of: w), let scr = screen(for: cur) else { NSSound.beep(); return }
         let visible = flip(scr.visibleFrame)
         place(w, from: cur, to: screenRect(unit: layout.unit, visible: visible, gap: gap), within: visible, key: "custom:" + layout.name)
     }

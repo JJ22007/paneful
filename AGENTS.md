@@ -23,6 +23,8 @@ The self-test (`Paneful --selftest`) covers geometry, key parsing, config decodi
 
 `Paneful --check <file>` validates a config file. Every file in `examples/` must pass it.
 
+The installed app also answers `paneful list | tile | run | place | fullscreen | actions` (see `Sources/CLI.swift`). With the app running and the permission granted, `paneful list` is a quick way to check real window positions after a change.
+
 ## What you cannot verify yourself
 
 Moving real windows requires the Accessibility permission, which only the user can grant in System Settings. The grant is tied to the code signature. With an ad-hoc signature every rebuild invalidates it, while the switch in System Settings can still look on. `scripts/setup-signing.sh` fixes this for good by creating a local self-signed identity that `build.sh` then uses automatically; it writes to the user's login keychain, so ask the user to run it rather than running it yourself. Without it, after `bash build.sh install` the user has to remove and re-add Paneful in the Accessibility list (or run `tccutil reset Accessibility io.github.paneful`). Say this plainly instead of claiming a change was tested end to end, and never try to grant the permission yourself.
@@ -47,6 +49,7 @@ All sources are in `Sources/`.
 | `Glyph.swift` | The small layout icons used in the menu and the welcome screens |
 | `App.swift` | `AppDelegate`: status item, menu, applying config to hotkeys |
 | `Welcome.swift` | SwiftUI onboarding: intro, permission, shortcuts, customize |
+| `CLI.swift` | The `paneful` command line client and the in-app server it talks to (distributed notification in, reply file out) |
 | `main.swift` | Entry point, `--selftest`, `--check`, `--snapshot`, and the `repoURL` constant |
 
 ## Conventions that matter
