@@ -1,0 +1,14 @@
+{
+  "shortcuts": {
+    "leftHalf": "ctrl+alt+h",
+    "bottomHalf": "ctrl+alt+j",
+    "topHalf": "ctrl+alt+k",
+    "rightHalf": "ctrl+alt+l",
+    "topLeft": "ctrl+alt+shift+h",
+    "bottomLeft": "ctrl+alt+shift+j",
+    "topRight": "ctrl+alt+shift+k",
+    "bottomRight": "ctrl+alt+shift+l",
+    "nextDisplay": "",
+    "prevDisplay": ""
+  }
+}
