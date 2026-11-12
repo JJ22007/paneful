@@ -15,7 +15,7 @@ import ApplicationServices
 import Security
 
 enum CLI {
-    static let commands: Set<String> = ["list", "displays", "tile", "run", "place", "fullscreen", "save", "restore", "actions", "help", "--help", "-h"]
+    static let commands: Set<String> = ["list", "displays", "tile", "run", "place", "fullscreen", "apply", "save", "restore", "mcp", "actions", "help", "--help", "-h"]
     static let channel = Notification.Name("io.github.paneful.command")
     static let tokenURL = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent("Library/Application Support/Paneful/cli-token")
@@ -33,9 +33,11 @@ enum CLI {
       paneful place <x> <y> <w> <h> [--app A] [--title T] [--display N]
                                                    put a window at a position
       paneful fullscreen <on|off> --app A          enter or leave native fullscreen
+      paneful apply <file|->                       place several windows at once (see below)
       paneful save [file]                          save where every window is
       paneful restore [file]                       put every saved window back
       paneful actions                              list the action names
+      paneful mcp                                  serve the same commands as MCP tools over stdio
 
     Positions are fractions of the screen from 0 to 1, origin at the top left:
     "place 0 0 0.6 1" is the left 60%, "place 0.6 0.5 0.4 0.5" the bottom right.
@@ -45,6 +47,14 @@ enum CLI {
     After moving windows, Paneful reads their frames back and reports where they really are.
     A line marked "differs" means the app refused the requested size (usually a minimum size).
     Add --json to any command for machine-readable output.
+
+    Exit status: 0 done and verified, 3 done but not verified (a window differs or was skipped;
+    the report still goes to stdout), 1 error, 2 Paneful is not running.
+
+    apply reads a list of windows as JSON, from a file or from stdin with "-":
+      [{"app": "Safari", "x": 0, "y": 0, "w": 0.6, "h": 1},
+       {"app": "Notes", "title": "todo", "x": 0.6, "y": 0, "w": 0.4, "h": 1, "display": 2}]
+    Each entry takes the first window that matches and hasn't been used yet.
 
     save and restore use \(defaultLayoutURL.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")) unless you name a file.
     Run `paneful save` before rearranging, and `paneful restore` undoes it.
@@ -73,6 +83,15 @@ enum CLI {
             let n = (try? JSONSerialization.jsonObject(with: Data(out.utf8)) as? [Any])?.count ?? 0
             return finish(0, json ? #"{"saved":\#(n),"file":"\#(url.path)"}"# : "saved \(n) windows to \(url.path)")
         }
+        if cmd == "mcp" { return MCP.serve() }
+        if cmd == "apply" {
+            guard let src = positional.first else { return finish(1, "error: usage: paneful apply <file|->") }
+            let data = src == "-" ? FileHandle.standardInput.readDataToEndOfFile()
+                : FileManager.default.contents(atPath: (src as NSString).expandingTildeInPath)
+            guard let d = data, let text = String(data: d, encoding: .utf8) else { return finish(1, "error: can't read \(src)") }
+            let (status, out) = send(["apply", text] + (json ? ["--json"] : []))
+            return finish(status, out)
+        }
         if cmd == "restore" {
             let url = positional.first.map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) } ?? defaultLayoutURL
             guard let text = try? String(contentsOf: url, encoding: .utf8) else {
@@ -86,7 +105,7 @@ enum CLI {
     }
 
     /// Send one request to the running app and wait for its reply
-    private static func send(_ args: [String]) -> (Int32, String) {
+    static func send(_ args: [String]) -> (Int32, String) {
         guard let token = try? String(contentsOf: tokenURL, encoding: .utf8) else {
             return (2, "error: Paneful is not running. Open Paneful.app first.")
         }
@@ -110,7 +129,7 @@ enum CLI {
 
     private static func finish(_ status: Int32, _ out: String) -> Int32 {
         let text = out.hasSuffix("\n") ? out : out + "\n"
-        FileHandle(forWritingAtPath: status == 0 ? "/dev/stdout" : "/dev/stderr")?.write(Data(text.utf8))
+        FileHandle(forWritingAtPath: status == 0 || status == 3 ? "/dev/stdout" : "/dev/stderr")?.write(Data(text.utf8))
         return status
     }
 
@@ -222,6 +241,11 @@ enum CLI {
             let n = AX.setFullScreen(mode == "on", app: name)
             return (0, json ? encode(["changed": n]) : "changed \(n) window(s)")
 
+        case "apply":
+            let parsed = parseLayout(rest.first ?? "")
+            if let e = parsed.error { return fail(e) }
+            return apply(parsed.entries, json: json)
+
         case "restore":
             guard let text = rest.first, let saved = try? JSONSerialization.jsonObject(with: Data(text.utf8)) as? [[String: Any]] else {
                 return fail("the saved layout is not a list of windows. Save it again with `paneful save`.")
@@ -246,7 +270,10 @@ enum CLI {
         return report([(w, t)], verb: "moved", json: json)
     }
 
-    private static func report(_ placed: [(window: AXUIElement, target: CGRect)], verb: String, json: Bool) -> (Int32, String) {
+    /// Read every moved window back and say whether the result is verified: each window where it was
+    /// asked to be, and nothing skipped. Exit status 0 when verified, 3 when not.
+    private static func report(_ placed: [(window: AXUIElement, target: CGRect)], skipped: [[String: Any]] = [],
+                               verb: String, json: Bool) -> (Int32, String) {
         let actual = settle(placed)
         let results = zip(placed, actual).enumerated().map { i, pair -> [String: Any] in
             var d = info(pair.0.window, frame: pair.1, index: i + 1)
@@ -254,11 +281,16 @@ enum CLI {
             d["matchesTarget"] = nearlyEqual(pair.1, pair.0.target, tol: 3)
             return d
         }
-        if json { return (0, encode([verb: results.count, "windows": results])) }
         let differ = results.filter { $0["matchesTarget"] as? Bool == false }.count
+        let verified = differ == 0 && skipped.isEmpty
+        let status: Int32 = verified ? 0 : 3
+        if json { return (status, encode([verb: results.count, "windows": results, "skipped": skipped, "verified": verified])) }
         var out = "\(verb) \(results.count) window\(results.count == 1 ? "" : "s")"
         if differ > 0 { out += ", \(differ) differ from the requested frame (the app enforces a size)" }
-        return (0, ([out] + results.map(line)).joined(separator: "\n"))
+        if !skipped.isEmpty { out += ", \(skipped.count) skipped" }
+        out += verified ? " (verified)" : " (not verified)"
+        let skippedLines = skipped.map { "skipped  app=\"\($0["app"] ?? "")\"  title=\"\($0["title"] ?? "")\"  (\($0["reason"] ?? ""))" }
+        return (status, ([out] + results.map(line) + skippedLines).joined(separator: "\n"))
     }
 
     /// Read frames back, giving slow apps up to about half a second to finish resizing
@@ -267,6 +299,14 @@ enum CLI {
         for _ in 0..<12 {
             frames = placed.map { AX.frame(of: $0.window) ?? .null }
             if zip(frames, placed).allSatisfy({ nearlyEqual($0, $1.target, tol: 3) }) { break }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        }
+        // The window server's on-screen list (which `list` and the next command start from) lags
+        // the Accessibility frame for a moment after a move. Wait for it too, so a call made right
+        // after this one still finds every window that just moved.
+        for _ in 0..<12 {
+            let listed = AX.windowsFrontToBack().map(\.window)
+            if placed.allSatisfy({ p in listed.contains { CFEqual($0, p.window) } }) { break }
             RunLoop.current.run(until: Date().addingTimeInterval(0.05))
         }
         return frames
@@ -297,14 +337,71 @@ enum CLI {
             WindowManager.shared.move(current[i].window, to: frame)
             placed.append((current[i].window, frame))
         }
-        let (_, out) = report(placed, verb: "restored", json: json)
-        if json {
-            var obj = (try? JSONSerialization.jsonObject(with: Data(out.utf8)) as? [String: Any]) ?? [:]
-            obj["skipped"] = skipped
-            return (0, encode(obj))
+        return report(placed, skipped: skipped, verb: "restored", json: json)
+    }
+
+    /// One window in a layout for `paneful apply`: which window, and where as screen fractions
+    struct LayoutEntry: Equatable {
+        var app: String?
+        var title: String?
+        var unit: CGRect
+        var display: Int?
+    }
+
+    /// Read a layout: a JSON list of entries, or {"windows": [...]}. Returns the first problem found.
+    static func parseLayout(_ text: String) -> (entries: [LayoutEntry], error: String?) {
+        guard let obj = try? JSONSerialization.jsonObject(with: Data(text.utf8)) else { return ([], "the layout is not valid JSON") }
+        guard let list = (obj as? [[String: Any]]) ?? ((obj as? [String: Any])?["windows"] as? [[String: Any]]), !list.isEmpty else {
+            return ([], "the layout must be a non-empty list of windows")
         }
-        let lines = skipped.map { "skipped  app=\"\($0["app"]!)\"  title=\"\($0["title"]!)\"  (\($0["reason"]!))" }
-        return (0, ([out] + lines).joined(separator: "\n"))
+        var out: [LayoutEntry] = []
+        for (i, e) in list.enumerated() {
+            let n = i + 1
+            let app = e["app"] as? String, title = e["title"] as? String
+            guard app != nil || title != nil else { return ([], "window \(n): give \"app\" or \"title\"") }
+            let v = ["x", "y", "w", "h"].map { (e[$0] as? NSNumber)?.doubleValue }
+            guard let x = v[0], let y = v[1], let w = v[2], let h = v[3],
+                  w > 0, h > 0, x >= 0, y >= 0, x + w <= 1.001, y + h <= 1.001 else {
+                return ([], "window \(n): x, y, w, h must be numbers within 0–1")
+            }
+            var display: Int?
+            if let d = e["display"] {
+                guard let dn = (d as? NSNumber)?.intValue, dn >= 1 else { return ([], "window \(n): display must be 1 or more") }
+                display = dn
+            }
+            out.append(LayoutEntry(app: app, title: title, unit: CGRect(x: x, y: y, width: w, height: h), display: display))
+        }
+        return (out, nil)
+    }
+
+    private static func apply(_ entries: [LayoutEntry], json: Bool) -> (Int32, String) {
+        let current = AX.windowsFrontToBack()
+        let screens = orderedScreens()
+        var used = Set<Int>()
+        var placed: [(window: AXUIElement, target: CGRect)] = []
+        var skipped: [[String: Any]] = []
+        for e in entries {
+            let label: [String: Any] = ["app": e.app ?? "", "title": e.title ?? ""]
+            guard let i = current.indices.first(where: { i in
+                let (name, t, bundle) = AX.describe(current[i].window)
+                return !used.contains(i)
+                    && (e.app.map { name.localizedCaseInsensitiveContains($0) || bundle.localizedCaseInsensitiveContains($0) } ?? true)
+                    && (e.title.map { t.localizedCaseInsensitiveContains($0) } ?? true)
+            }) else { skipped.append(label.merging(["reason": "window not found"]) { a, _ in a }); continue }
+            var screen: NSScreen?
+            if let d = e.display {
+                guard screens.indices.contains(d - 1) else { skipped.append(label.merging(["reason": "there is no display \(d)"]) { a, _ in a }); continue }
+                screen = screens[d - 1]
+            }
+            used.insert(i)
+            let wm = WindowManager.shared
+            wm.lastTarget = nil
+            wm.perform(CustomLayout(name: "apply", key: nil, x: e.unit.minX, y: e.unit.minY, w: e.unit.width, h: e.unit.height),
+                       on: current[i].window, screen: screen)
+            if let t = wm.lastTarget { placed.append((current[i].window, t)) }
+            else { skipped.append(label.merging(["reason": "the window could not be moved"]) { a, _ in a }) }
+        }
+        return report(placed, skipped: skipped, verb: "applied", json: json)
     }
 
     /// Pair saved windows with current ones: same app and title first, then same app in order

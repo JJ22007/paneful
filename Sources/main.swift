@@ -97,6 +97,42 @@ func selfTest() -> Int32 {
         && DragSnapper.zone(at: CGPoint(x: 1511, y: 20), in: f) == .bottomRight
         && DragSnapper.zone(at: CGPoint(x: 700, y: 500), in: f) == nil)
 
+    let layout = CLI.parseLayout(#"[{"app":"Safari","x":0,"y":0,"w":0.6,"h":1},{"title":"todo","x":0.6,"y":0,"w":0.4,"h":0.5,"display":2}]"#)
+    expect("apply: layout parses", layout.error == nil && layout.entries.count == 2 && layout.entries[0].app == "Safari"
+        && layout.entries[1].title == "todo" && layout.entries[1].display == 2 && layout.entries[1].unit.height == 0.5, layout.error ?? "")
+    expect("apply: {\"windows\": [...]} is accepted", CLI.parseLayout(#"{"windows":[{"app":"Notes","x":0,"y":0,"w":1,"h":1}]}"#).entries.count == 1)
+    expect("apply: bad layouts are rejected", [
+        #"[{"x":0,"y":0,"w":1,"h":1}]"#,                    // no app or title
+        #"[{"app":"A","x":0,"y":0,"w":1.5,"h":1}]"#,        // outside 0–1
+        #"[{"app":"A","x":0.8,"y":0,"w":0.5,"h":1}]"#,      // runs off the right edge
+        #"[{"app":"A","x":0,"y":0,"w":1,"h":1,"display":0}]"#,
+        #"[]"#, "nonsense",
+    ].allSatisfy { CLI.parseLayout($0).error != nil })
+
+    var calls: [[String]] = []
+    let fake: ([String]) -> (Int32, String) = { args in
+        calls.append(args)
+        return args.first == "apply" ? (3, #"{"applied":1,"verified":false,"windows":[],"skipped":[]}"#) : (0, #"[{"app":"Safari"}]"#)
+    }
+    func mcp(_ line: String) -> [String: Any]? {
+        MCP.handle(line, call: fake).flatMap { try? JSONSerialization.jsonObject(with: Data($0.utf8)) as? [String: Any] }
+    }
+    let ini = mcp(#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}"#)?["result"] as? [String: Any]
+    expect("mcp: initialize", ini?["protocolVersion"] as? String == "2025-06-18" && (ini?["serverInfo"] as? [String: Any])?["name"] as? String == "paneful")
+    expect("mcp: notifications get no answer", MCP.handle(#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#, call: fake) == nil)
+    let listed = (mcp(#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#)?["result"] as? [String: Any])?["tools"] as? [[String: Any]]
+    expect("mcp: tools are listed", Set(listed?.compactMap { $0["name"] as? String } ?? []) == ["list_windows", "list_displays", "apply_layout", "tile_all", "save_layout", "restore_layout"])
+    let saved = (mcp(#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"save_layout","arguments":{}}}"#)?["result"] as? [String: Any])
+    expect("mcp: save_layout wraps the window list", calls.last == ["list", "--json"] && saved?["isError"] as? Bool == false
+        && ((saved?["structuredContent"] as? [String: Any])?["layout"] as? [Any])?.count == 1)
+    let applied = (mcp(#"{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"apply_layout","arguments":{"windows":[{"app":"Safari","x":0,"y":0,"w":1,"h":1}]}}}"#)?["result"] as? [String: Any])
+    expect("mcp: apply_layout forwards and an unverified result is an error", calls.last?.first == "apply" && calls.last?.last == "--json"
+        && applied?["isError"] as? Bool == true && (applied?["structuredContent"] as? [String: Any])?["verified"] as? Bool == false)
+    expect("mcp: missing arguments and unknown methods are errors",
+           mcp(#"{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"apply_layout","arguments":{}}}"#)?["error"] != nil
+           && (mcp(#"{"jsonrpc":"2.0","id":6,"method":"nope"}"#)?["error"] as? [String: Any])?["code"] as? Int == -32601
+           && (mcp("not json")?["error"] as? [String: Any])?["code"] as? Int == -32700)
+
     print(fails == 0 ? "all tests passed" : "\(fails) test(s) failed")
     return fails == 0 ? 0 : 1
 }
