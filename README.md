@@ -161,7 +161,9 @@ ln -s ~/Applications/Paneful.app/Contents/MacOS/Paneful /usr/local/bin/paneful
 | `paneful place 0 0 0.6 1 --app Safari` | Put a window anywhere. Numbers are `x y w h` from 0 to 1 |
 | `paneful run leftHalf --title notes --display 2` | Run any built-in action on a specific window, optionally on another display |
 | `paneful fullscreen off --app Keynote` | Enter or leave native fullscreen |
+| `paneful apply layout.json` | Place several windows at once, by app or title (format below) |
 | `paneful save` / `paneful restore` | Remember where every window is, and put them all back |
+| `paneful mcp` | The same commands as an MCP server, for agents and tools that speak MCP |
 | `paneful actions` | List the action names |
 
 `--app` matches the app name or bundle id, `--title` the window title, both by case-insensitive substring. Without them a command applies to the focused window. Chain commands with `&&` to build a whole layout in one go.
@@ -170,7 +172,16 @@ ln -s ~/Applications/Paneful.app/Contents/MacOS/Paneful /usr/local/bin/paneful
 
 **Undo.** `paneful save` writes every window's position to `~/.config/paneful/layout.json` (or a file you name), and `paneful restore` puts them back and reports any it couldn't find. Have the agent save first and you can always get your desktop back.
 
-**For programs.** Add `--json` to any command. `list --json` gives the app, bundle id, title, display, screen fractions and the frame in points; moves add the requested frame and `matchesTarget`. Errors exit with status 1.
+**Whole layouts.** `paneful apply` takes a file (or `-` for stdin) listing windows and where they go. Each entry takes the first matching window not used yet; `display` is optional:
+
+```json
+[{"app": "Safari", "x": 0, "y": 0, "w": 0.6, "h": 1},
+ {"app": "Notes", "title": "todo", "x": 0.6, "y": 0, "w": 0.4, "h": 1, "display": 2}]
+```
+
+**For programs.** Add `--json` to any command. `list --json` gives the app, bundle id, title, display, screen fractions and the frame in points; moves add the requested frame, `matchesTarget`, any `skipped` windows and an overall `verified`. Exit status: 0 done and verified, 3 done but not verified (a window differs or was skipped), 1 error, 2 Paneful isn't running.
+
+**MCP.** `paneful mcp` serves `list_windows`, `list_displays`, `apply_layout`, `tile_all`, `save_layout` and `restore_layout` over stdio. Each call goes through the same channel and the same read-back as the command line, and a result is marked as an error unless it was verified. Add it to an MCP client as the command `paneful` with the argument `mcp`.
 
 To get the result in the recording above, give your agent a few lines of context (a `CLAUDE.md`, a system prompt, or just paste it) and then talk to it normally:
 
