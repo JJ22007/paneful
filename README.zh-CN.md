@@ -1,8 +1,8 @@
 <h1 align="center">Paneful</h1>
 
 <p align="center">
-  <b>不折腾的 macOS 分屏工具。</b><br>
-  小到一口气能读完,生来就是让你 Fork 和改造的。
+  <b>一个小巧的 macOS 窗口管理器,给你和你的 AI 编程助手拿去 Fork、去改造。</b><br>
+  1,830 行 Swift,零依赖,一条 <code>swiftc</code> 命令就能编译。自带命令行,agent 可以直接用它帮你摆窗口。
 </p>
 
 <p align="center">
@@ -14,9 +14,23 @@
 </p>
 <p align="center"><sub>对 Claude Code 说一句话,杂乱的桌面瞬间归位。真实录屏,agent 思考的几秒做了加速。</sub></p>
 
-Paneful 是一个菜单栏 App,用键盘把窗口摆到位。全部代码约 1700 行 Swift,没有第三方依赖,也不需要 Xcode 工程。想改的东西基本都在一份 JSON 里;JSON 改不了的,自己或者让 AI 编程助手改几行代码就行。
+Paneful 是一个菜单栏 App,用键盘或者让 agent 把窗口摆到位。它不打算做一个更好的 Rectangle,而是要小到你或你的 AI 编程助手能把它整个读完,再改成你自己的工具:13 个文件、1,830 行 Swift,没有第三方依赖,不需要 Xcode 工程,每次编译都会跑一遍自测。
 
 > 界面是英文的。想要中文界面?这正好是一个很适合交给 AI 助手的改造任务,见下文「做一个属于你自己的」。
+
+## 该选哪一个
+
+Paneful 只适合少数人,先把实话说在前面。
+
+| 你想要的 | 用这个 |
+|---|---|
+| 只要半屏、四分之一屏 | 系统自带的就够了:拖到屏幕边缘,或用绿色按钮的菜单 |
+| 一个成熟、开箱即用的窗口工具 | [Rectangle](https://github.com/rxhanson/Rectangle):免费,位置多得多,有快捷键录制器,有签名的安装包 |
+| i3 / xmonad 式的自动平铺 | [AeroSpace](https://github.com/nikitabobko/AeroSpace)、[Amethyst](https://github.com/ianyh/Amethyst) 或 [yabai](https://github.com/asmvik/yabai) |
+| 带 MCP、工作区、截图、OCR 的 agent 工具箱 | [Plonk](https://github.com/ostapondo/Plonk) |
+| 一个小到能完全改成自己的窗口管理器,改动交给 agent 来做 | Paneful |
+
+Paneful 拿来交换的是:源码大约 87 KB,只是上面这些工具的一小部分,agent 一次就能读完;[`AGENTS.md`](AGENTS.md) 告诉 agent 每样东西在哪、哪些事它自己验证不了;`paneful` 命令不需要 Node、MCP 配置或 Lua,agent 能跑 shell 命令就能列出和摆放窗口。
 
 ## 功能
 
@@ -137,6 +151,8 @@ Run `paneful help` to see the commands. Act right away, then reply in one short 
 
 命令行是和正在运行的 App 通信的,所以 Paneful 需要开着并且已有辅助功能权限;agent 本身不需要任何特殊权限。
 
+**信任模型。** 命令行通过 macOS 的分布式通知把请求发给 App。你登录会话里的任何进程都能发这种通知,所以你运行的任何程序都能借 Paneful 移动你的窗口,但也只能做这件事。如果介意,可以退出 Paneful,或者在自己的 Fork 里删掉 `CLI.startServer()`。
+
 ## 做一个属于你自己的
 
 配置不够用,就改代码。这个项目是按「方便人和 AI 读懂、修改」来写的。
@@ -157,11 +173,13 @@ Run `paneful help` to see the commands. Act right away, then reply in one short 
 - **不能把窗口移到别的桌面(Space)**,也不能新建桌面。macOS 没有公开的接口。
 - 全屏、最小化、在其他桌面上的窗口不参与一键排列。
 - 有些 App 的窗口有最小尺寸,可能比分到的格子大。
-- 快捷键在配置文件里改,没有图形化的录制界面。
+- 快捷键在配置文件里改,没有图形化的录制界面。这是有意的:配置文件是唯一的设置来源,代码才能保持小。
+- 还没有可直接下载的安装包,需要从源码编译;不运行 `scripts/setup-signing.sh` 的话,每次重新编译都会丢掉辅助功能权限。
+- 作者只在 Apple silicon、macOS 27、双显示器上测过。Intel Mac 和更早的 macOS 应该能用,但还没试过。
 
 ## 致谢
 
-快捷键和整体手感参考了 [Rectangle](https://github.com/rxhanson/Rectangle)。如果你想要一个成熟、开箱即用的分屏工具,直接用它就很好。Paneful 的目标不一样:小到你可以把它完全变成自己的。
+默认快捷键和整体手感参考了 [Rectangle](https://github.com/rxhanson/Rectangle),肌肉记忆可以直接沿用。如果你想要一个成熟、开箱即用的工具,直接用 Rectangle 就很好。Paneful 的目标不一样:小到你可以把它完全变成自己的。
 
 菜单栏图标来自 [Lucide](https://lucide.dev)(ISC 许可,见 [LICENSES/lucide.txt](LICENSES/lucide.txt))。
 

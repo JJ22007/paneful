@@ -50,6 +50,7 @@ All sources are in `Sources/`.
 | `App.swift` | `AppDelegate`: status item, menu, applying config to hotkeys |
 | `Welcome.swift` | SwiftUI onboarding: intro, permission, shortcuts, customize |
 | `CLI.swift` | The `paneful` command line client and the in-app server it talks to (distributed notification in, reply file out) |
+| `MenuBarIcon.swift` | The menu bar icon (Lucide `layout-panel-left`), drawn in code as a template image |
 | `main.swift` | Entry point, `--selftest`, `--check`, `--snapshot`, and the `repoURL` constant |
 
 ## Conventions that matter

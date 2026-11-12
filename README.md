@@ -1,12 +1,13 @@
 <h1 align="center">Paneful</h1>
 
 <p align="center">
-  <b>Window tiling for macOS that isn't painful.</b><br>
-  Small enough to read in one sitting. Built to be forked and reshaped.
+  <b>A small macOS window manager for you and your coding agent to fork and reshape.</b><br>
+  1,830 lines of Swift, no dependencies, one <code>swiftc</code> command to build. Comes with a CLI your agent can use to arrange your windows.
 </p>
 
 <p align="center">
   <a href="README.zh-CN.md">简体中文</a> ·
+  <a href="#which-one-should-you-use">Which one?</a> ·
   <a href="#install">Install</a> ·
   <a href="#make-it-yours">Customize</a> ·
   <a href="#let-an-agent-drive">Agents</a> ·
@@ -18,7 +19,21 @@
 </p>
 <p align="center"><sub>One sentence to Claude Code, and a messy desktop snaps into place. Real recording; the few seconds the agent spends thinking are sped up.</sub></p>
 
-Paneful is a menu bar app that snaps windows into place with the keyboard, or on an agent's say-so. It is about 1,700 lines of Swift with no dependencies and no Xcode project. Everything you might want to change sits in one JSON file, and anything the file can't do is a short edit away, by you or by your AI coding agent.
+Paneful is a menu bar app that moves windows with the keyboard, or on an agent's say-so. It is not trying to be a better Rectangle. It is trying to be small enough that you, or your coding agent, can read all of it and turn it into your own tool: 13 files and 1,830 lines of Swift, no dependencies, no Xcode project, and a self-test that runs on every build.
+
+## Which one should you use?
+
+Paneful is the right pick for few people, so here is the honest version.
+
+| If you want… | Use |
+|---|---|
+| Halves and quarters, nothing else | What macOS already has: drag to a screen edge, or the green button's menu |
+| A polished window tool that just works | [Rectangle](https://github.com/rxhanson/Rectangle): free, many more positions, a shortcut recorder, signed releases |
+| Automatic i3 / xmonad style tiling | [AeroSpace](https://github.com/nikitabobko/AeroSpace), [Amethyst](https://github.com/ianyh/Amethyst) or [yabai](https://github.com/asmvik/yabai) |
+| An agent toolkit with MCP, workspaces, screenshots and OCR | [Plonk](https://github.com/ostapondo/Plonk) |
+| A window manager small enough to make entirely your own, with your agent doing the edits | Paneful |
+
+What Paneful offers in exchange: the source is about 87 KB, a small fraction of the tools above, so an agent can read it in one go. [`AGENTS.md`](AGENTS.md) tells the agent where things live and what it can't check by itself. The `paneful` command needs no Node, MCP setup or Lua: if your agent can run a shell command, it can list and place windows.
 
 ## Features
 
@@ -162,6 +177,8 @@ Run `paneful help` to see the commands. Act right away, then reply in one short 
 
 The command line tool talks to the running app, so Paneful has to be open and have the Accessibility permission. The agent itself needs no special permission.
 
+**Trust model.** The command reaches the app through a macOS distributed notification. Any process running in your login session can send one, so any program you run can move your windows through Paneful; it can't do anything beyond that. If that matters to you, quit Paneful or remove the server in `CLI.startServer()` in your fork.
+
 ## Build your own
 
 When the config isn't enough, change the code. The project is written to be easy for people and coding agents to read.
@@ -188,6 +205,7 @@ Prefer to do it by hand? Each file has one job:
 | [`App.swift`](Sources/App.swift) | Menu bar icon and menu | change the menu |
 | [`Welcome.swift`](Sources/Welcome.swift) | First-run guide (SwiftUI) | change the onboarding |
 | [`CLI.swift`](Sources/CLI.swift) | The `paneful` command and its server inside the app | add a command |
+| [`MenuBarIcon.swift`](Sources/MenuBarIcon.swift) | The menu bar icon, drawn in code | change the icon |
 | [`Accessibility.swift`](Sources/Accessibility.swift) | System calls that read and move windows | rarely |
 
 After changing the guide, run `bash build.sh snapshot` to re-render each step into `docs/`.
@@ -197,11 +215,13 @@ After changing the guide, run `bash build.sh snapshot` to re-render each step in
 - **It can't move windows between Spaces** or create a Space. macOS has no public API for that.
 - Fullscreen and minimized windows, and windows on other Spaces, are left out of "tile all".
 - Some apps enforce a minimum window size, so a window can end up larger than its cell.
-- Shortcuts are set in the config file. There is no shortcut recorder.
+- Shortcuts are set in the config file. There is no shortcut recorder, on purpose: the config file is the only source of settings, which keeps the code small.
+- No downloadable release yet. You build it from source, and without `scripts/setup-signing.sh` every rebuild loses the Accessibility permission.
+- Tested by the author on Apple silicon with macOS 27 and two displays. Intel Macs and older macOS versions should work but haven't been tried.
 
 ## Credits
 
-The shortcuts and overall feel follow [Rectangle](https://github.com/rxhanson/Rectangle). If you want a mature tiling tool that just works, use it; it's excellent. Paneful has a different goal: to be small enough that you can make it entirely your own.
+The default shortcuts and overall feel follow [Rectangle](https://github.com/rxhanson/Rectangle), so your muscle memory carries over. If you want a mature tool that just works, use Rectangle; it's excellent. Paneful has a different goal: to be small enough that you can make it entirely your own.
 
 The menu bar icon is from [Lucide](https://lucide.dev) (ISC, see [LICENSES/lucide.txt](LICENSES/lucide.txt)).
 
