@@ -36,17 +36,17 @@ final class WelcomeModel: ObservableObject {
 let exampleSnippet = """
 {
   "gap": 8,
-  "shortcuts": { "maximize": "ctrl+alt+m" },
+  "shortcuts": {
+    "maximize": "ctrl+alt+space"
+  },
   "custom": [
     { "name": "Code", "key": "ctrl+alt+1",
       "x": 0, "y": 0, "w": 0.62, "h": 1 },
     { "name": "Docs", "key": "ctrl+alt+2",
       "x": 0.62, "y": 0, "w": 0.38, "h": 1 }
   ],
-  "tile": {
-    "max": 6,
-    "rows": { "5": [2, 3] }
-  }
+  "tile": { "max": 6,
+            "rows": { "5": [2, 3] } }
 }
 """
 
@@ -342,7 +342,7 @@ private struct CustomizeStep: View {
             Spacer(minLength: 0)
             HStack(alignment: .center, spacing: 12) {
                 Image(systemName: "sparkles").foregroundStyle(Color.accentColor)
-                Text("Want more? Paneful is about 1,700 lines of Swift with no dependencies. Fork it, hand the repo to your AI coding agent, and say what you want.")
+                Text("Want more? Paneful is about 2,100 lines of Swift with no dependencies. Fork it, hand the repo to your AI coding agent, and say what you want.")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

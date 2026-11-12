@@ -3,6 +3,12 @@
 import AppKit
 import ServiceManagement
 
+/// English or Simplified Chinese, following the system language. Used for the messages people
+/// see when something goes wrong; the rest of the interface is English.
+func L(_ en: String, _ zh: String) -> String {
+    Locale.preferredLanguages.first?.hasPrefix("zh") == true ? zh : en
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
     private let snapper = DragSnapper()
@@ -10,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Shortcuts that failed to register (taken by another app), flagged in the menu
     private var takenKeys: Set<String> = []
     private var explaining = false
+    private var wasTrusted = AX.trusted
 
     private var store: ConfigStore { ConfigStore.shared }
 
@@ -26,13 +33,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         store.start()
         applyConfig()
         CLI.startServer()
-        logLine("launch accessibility=\(AX.trusted) takenShortcuts=\(takenKeys.sorted())")
+        logLine("launch accessibility=\(AX.trusted) adhoc=\(AX.adHocSigned) takenShortcuts=\(takenKeys.sorted())")
+        updateStatusIcon()
+        // The permission can disappear while Paneful runs (a rebuild, or the user switching it off).
+        // Dim the icon so it is obvious, instead of shortcuts silently doing nothing.
+        Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in self?.updateStatusIcon() }
 
         if !UserDefaults.standard.bool(forKey: "onboarded") {
             welcome.show()
         } else if !AX.trusted {
             AX.promptForTrust()
         }
+    }
+
+    private func updateStatusIcon() {
+        let now = AX.trusted
+        if now != wasTrusted { logLine("accessibility changed: \(now)"); wasTrusted = now }
+        statusItem.button?.appearsDisabled = !now
+        statusItem.button?.toolTip = now ? "Paneful" : L("Paneful: Accessibility permission needed", "Paneful:需要辅助功能权限")
     }
 
     /// Re-register every hotkey after the config changes (launch, manual edit, menu toggle)
@@ -58,12 +76,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let cfg = store.config
 
         if !AX.trusted {
-            menu.addItem(item("Accessibility Permission Needed…", #selector(openAccessibility), symbol: "exclamationmark.triangle.fill"))
+            menu.addItem(item(L("Accessibility Permission Needed…", "需要辅助功能权限…"), #selector(openAccessibility), symbol: "exclamationmark.triangle.fill"))
             menu.addItem(.separator())
         }
         var problems = cfg.warnings()
         if let e = store.parseError { problems.insert(e + " (still using the last good config)", at: 0) }
-        problems += takenKeys.sorted().map { "Shortcut \(KeyCombo.parse($0)?.pretty ?? $0) is taken by another app" }
+        problems += takenKeys.sorted().map {
+            L("Shortcut \(KeyCombo.parse($0)?.pretty ?? $0) is taken by another app", "快捷键 \(KeyCombo.parse($0)?.pretty ?? $0) 已被其他 App 占用")
+        }
         if !problems.isEmpty {
             let head = item(problems.count == 1 ? "1 Config Problem" : "\(problems.count) Config Problems", nil, symbol: "exclamationmark.triangle")
             let sub = NSMenu()
@@ -157,7 +177,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func openConfig() { NSWorkspace.shared.open(ConfigStore.url) }
     @objc private func openExamples() { NSWorkspace.shared.open(URL(string: repoURL + "/tree/main/examples")!) }
     @objc private func showWelcome() { welcome.show() }
-    @objc private func openAccessibility() { AX.promptForTrust(); AX.openSettings() }
+    @objc private func openAccessibility() { explaining = false; explainPermission(force: true) }
 
     @objc private func toggleLogin() {
         do {
@@ -165,7 +185,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             else { try SMAppService.mainApp.register() }
         } catch {
             let alert = NSAlert()
-            alert.messageText = "Couldn't change Launch at Login"
+            alert.messageText = L("Couldn't change Launch at Login", "无法更改「登录时打开」")
             alert.informativeText = error.localizedDescription
             NSApp.activate(ignoringOtherApps: true)
             alert.runModal()
@@ -173,17 +193,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     /// A shortcut was pressed without the permission: say why instead of just beeping
-    private func explainPermission() {
-        logLine("action blocked: no accessibility permission")
+    private func explainPermission(force: Bool = false) {
+        if !force { logLine("action blocked: no accessibility permission") }
         guard !explaining else { return }
         explaining = true
         defer { explaining = false }
         let alert = NSAlert()
-        alert.messageText = "Paneful needs the Accessibility permission"
-        alert.informativeText = "Without it, Paneful can't move other apps' windows.\n\nIf Paneful is already switched on in the list but nothing happens, that entry belongs to an older build: select it, click “−” to remove it, then switch it on again."
-        alert.addButton(withTitle: "Open System Settings")
-        alert.addButton(withTitle: "Later")
+        alert.messageText = L("Paneful needs the Accessibility permission", "Paneful 需要辅助功能权限")
+        var text = L("Without it, Paneful can't move other apps' windows. Paneful uses it only to read and set window positions.",
+                     "没有这个权限,Paneful 无法移动其他 App 的窗口。Paneful 只用它来读取和设置窗口位置。")
+        text += "\n\n" + L("If Paneful is already switched on in the list but nothing happens, that entry belongs to an older build: select it, click “−” to remove it, then add Paneful again.",
+                            "如果列表里 Paneful 已经是打开的,但仍然没反应,说明那一条属于旧的构建:选中它,点「−」删掉,再重新添加 Paneful。")
+        if AX.adHocSigned {
+            text += "\n\n" + L("This copy is ad-hoc signed, so macOS forgets the permission every time it is rebuilt. Run scripts/setup-signing.sh once in the source folder to stop that.",
+                                "这一份是临时签名(ad-hoc)构建的,每次重新编译 macOS 都会忘掉这个权限。在源码目录里运行一次 scripts/setup-signing.sh 就不会再这样。")
+        }
+        alert.informativeText = text
+        alert.addButton(withTitle: L("Open System Settings", "打开系统设置"))
+        alert.addButton(withTitle: L("Later", "稍后"))
         NSApp.activate(ignoringOtherApps: true)
-        if alert.runModal() == .alertFirstButtonReturn { AX.openSettings() }
+        if alert.runModal() == .alertFirstButtonReturn { AX.promptForTrust(); AX.openSettings() }
     }
 }

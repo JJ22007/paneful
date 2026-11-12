@@ -3,9 +3,20 @@
 
 import AppKit
 import ApplicationServices
+import Security
 
 enum AX {
     static var trusted: Bool { AXIsProcessTrusted() }
+
+    /// True when this copy is ad-hoc signed. macOS then drops the permission on every rebuild.
+    static let adHocSigned: Bool = {
+        var code: SecStaticCode?
+        guard SecStaticCodeCreateWithPath(Bundle.main.bundleURL as CFURL, [], &code) == errSecSuccess, let c = code else { return false }
+        var info: CFDictionary?
+        guard SecCodeCopySigningInformation(c, SecCSFlags(rawValue: kSecCSSigningInformation), &info) == errSecSuccess,
+              let d = info as? [String: Any], let flags = d[kSecCodeInfoFlags as String] as? UInt32 else { return true }
+        return flags & SecCodeSignatureFlags.adhoc.rawValue != 0
+    }()
 
     /// Show the system prompt that asks for the permission
     static func promptForTrust() {

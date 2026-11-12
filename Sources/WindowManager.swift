@@ -14,6 +14,8 @@ final class WindowManager {
     private var lastKey: String?
     private var lastWindow: AXUIElement?
     private var cycle = 0
+    /// Where the last move asked a window to go, so the CLI can compare it with where the window ended up
+    var lastTarget: CGRect?
 
     private var config: Config { ConfigStore.shared.config }
     private var gap: CGFloat { CGFloat(config.gap) }
@@ -37,7 +39,7 @@ final class WindowManager {
 
         switch action {
         case .restore:
-            if let r = saved[w] { AX.setFrame(r, of: w); saved[w] = nil; lastSet[w] = nil }
+            if let r = saved[w] { AX.setFrame(r, of: w); saved[w] = nil; lastSet[w] = nil; lastTarget = r }
             lastKey = nil
         case .nextDisplay, .prevDisplay:
             // Walk the window one half at a time across every display:
@@ -47,7 +49,7 @@ final class WindowManager {
             var half: Action = right ? .rightHalf : .leftHalf
             if onOuterHalf(cur, visible: visible, right: right, tol: 30 + gap) {
                 guard let i = NSScreen.screens.firstIndex(of: scr),
-                      let j = neighborDisplay(of: i, in: NSScreen.screens.map(\.frame), left: !right) else { NSSound.beep(); return }
+                      let j = neighborDisplay(of: i, in: NSScreen.screens.map { flip($0.frame) }, left: !right) else { NSSound.beep(); return }
                 dest = flip(NSScreen.screens[j].visibleFrame)
                 half = right ? .leftHalf : .rightHalf
             }
@@ -69,7 +71,7 @@ final class WindowManager {
             // over to it: left half → right half of the display on the left, and the other way round.
             if repeated, config.crossDisplays, action == .leftHalf || action == .rightHalf,
                let i = NSScreen.screens.firstIndex(of: scr),
-               let j = neighborDisplay(of: i, in: NSScreen.screens.map(\.frame), left: action == .leftHalf) {
+               let j = neighborDisplay(of: i, in: NSScreen.screens.map { flip($0.frame) }, left: action == .leftHalf) {
                 let dest = flip(NSScreen.screens[j].visibleFrame)
                 let far: Action = action == .leftHalf ? .rightHalf : .leftHalf
                 guard let t = targetRect(far, visible: dest, current: cur, gap: gap) else { return }
@@ -85,17 +87,20 @@ final class WindowManager {
     }
 
     /// A position defined under `custom` in the config
-    func perform(_ layout: CustomLayout, on window: AXUIElement? = nil) {
+    func perform(_ layout: CustomLayout, on window: AXUIElement? = nil, screen forced: NSScreen? = nil) {
         guard AX.trusted else { onUntrusted?(); return }
-        guard let w = window ?? AX.focusedWindow(), let cur = AX.frame(of: w), let scr = screen(for: cur) else { NSSound.beep(); return }
+        guard let w = window ?? AX.focusedWindow(), let cur = AX.frame(of: w), let scr = forced ?? screen(for: cur) else { NSSound.beep(); return }
         let visible = flip(scr.visibleFrame)
         place(w, from: cur, to: screenRect(unit: layout.unit, visible: visible, gap: gap), within: visible, key: "custom:" + layout.name)
     }
 
     /// Tile all: spread the visible windows on each display. Above the limit, only the most recent ones are tiled.
-    func tileAll() {
+    /// Returns each window that was moved and the frame it was asked to take.
+    @discardableResult
+    func tileAll() -> [(window: AXUIElement, target: CGRect)] {
         let all = AX.windowsFrontToBack()
-        guard !all.isEmpty else { NSSound.beep(); return }
+        guard !all.isEmpty else { NSSound.beep(); return [] }
+        var placed: [(window: AXUIElement, target: CGRect)] = []
         var order: [NSScreen] = []
         var byScreen: [NSScreen: [(window: AXUIElement, frame: CGRect)]] = [:]
         for item in all {
@@ -117,8 +122,17 @@ final class WindowManager {
             }
             for (item, target) in zip(ordered, tileLayout(rows: rows, visible: visible, gap: gap)) {
                 place(item.window, from: item.frame, to: target, within: nil, key: nil)
+                placed.append((item.window, target))
             }
         }
+        lastKey = nil
+        return placed
+    }
+
+    /// Put a window back at an exact frame (used by `paneful restore`). Restore can undo it like any other move.
+    func move(_ w: AXUIElement, to frame: CGRect) {
+        guard let cur = AX.frame(of: w) else { return }
+        place(w, from: cur, to: frame, within: nil, key: nil)
         lastKey = nil
     }
 
@@ -127,6 +141,7 @@ final class WindowManager {
     private func place(_ w: AXUIElement, from cur: CGRect, to target: CGRect, within visible: CGRect?, key: String?) {
         // Remember the original frame (only if the current one is not a frame we set)
         if let ls = lastSet[w] { if !nearlyEqual(ls, cur) { saved[w] = cur } } else { saved[w] = cur }
+        lastTarget = target
 
         AX.setFrame(target, of: w)
 

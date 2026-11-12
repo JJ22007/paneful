@@ -2,7 +2,7 @@
 
 <p align="center">
   <b>A small macOS window manager for you and your coding agent to fork and reshape.</b><br>
-  1,830 lines of Swift, no dependencies, one <code>swiftc</code> command to build. Comes with a CLI your agent can use to arrange your windows.
+  about 2,100 lines of Swift, no dependencies, one <code>swiftc</code> command to build. Comes with a CLI your agent can use to arrange your windows.
 </p>
 
 <p align="center">
@@ -19,7 +19,7 @@
 </p>
 <p align="center"><sub>One sentence to Claude Code, and a messy desktop snaps into place. Real recording; the few seconds the agent spends thinking are sped up.</sub></p>
 
-Paneful is a menu bar app that moves windows with the keyboard, or on an agent's say-so. It is not trying to be a better Rectangle. It is trying to be small enough that you, or your coding agent, can read all of it and turn it into your own tool: 13 files and 1,830 lines of Swift, no dependencies, no Xcode project, and a self-test that runs on every build.
+Paneful is a menu bar app that moves windows with the keyboard, or on an agent's say-so. It is not trying to be a better Rectangle. It is trying to be small enough that you, or your coding agent, can read all of it and turn it into your own tool: 13 files and about 2,100 lines of Swift, no dependencies, no Xcode project, and a self-test that runs on every build.
 
 ## Which one should you use?
 
@@ -33,7 +33,7 @@ Paneful is the right pick for few people, so here is the honest version.
 | An agent toolkit with MCP, workspaces, screenshots and OCR | [Plonk](https://github.com/ostapondo/Plonk) |
 | A window manager small enough to make entirely your own, with your agent doing the edits | Paneful |
 
-What Paneful offers in exchange: the source is about 87 KB, a small fraction of the tools above, so an agent can read it in one go. [`AGENTS.md`](AGENTS.md) tells the agent where things live and what it can't check by itself. The `paneful` command needs no Node, MCP setup or Lua: if your agent can run a shell command, it can list and place windows.
+What Paneful offers in exchange: the source is about 105 KB, a small fraction of the tools above, so an agent can read it in one go. [`AGENTS.md`](AGENTS.md) tells the agent where things live and what it can't check by itself. The `paneful` command needs no Node, MCP setup or Lua: if your agent can run a shell command, it can list and place windows.
 
 ## Features
 
@@ -95,7 +95,7 @@ The config lives at `~/.config/paneful/config.json`. Open it from the menu bar w
   "gap": 8,
   "dragSnap": false,
   "shortcuts": {
-    "maximize": "ctrl+alt+m",
+    "maximize": "ctrl+alt+space",
     "center": ""
   },
   "custom": [
@@ -155,20 +155,29 @@ ln -s ~/Applications/Paneful.app/Contents/MacOS/Paneful /usr/local/bin/paneful
 
 | Command | What it does |
 |---|---|
-| `paneful list` | List every window: app, title, and position as screen fractions |
+| `paneful list` | List every window: app, title, display, and position as screen fractions |
+| `paneful displays` | List displays, numbered left to right |
 | `paneful tile` | Tile all windows into a grid |
 | `paneful place 0 0 0.6 1 --app Safari` | Put a window anywhere. Numbers are `x y w h` from 0 to 1 |
-| `paneful run leftHalf --title notes` | Run any built-in action on a specific window |
+| `paneful run leftHalf --title notes --display 2` | Run any built-in action on a specific window, optionally on another display |
 | `paneful fullscreen off --app Keynote` | Enter or leave native fullscreen |
+| `paneful save` / `paneful restore` | Remember where every window is, and put them all back |
 | `paneful actions` | List the action names |
 
 `--app` matches the app name or bundle id, `--title` the window title, both by case-insensitive substring. Without them a command applies to the focused window. Chain commands with `&&` to build a whole layout in one go.
+
+**Checked, not assumed.** After every move Paneful reads each window's frame back from macOS and reports where it really is. Some apps refuse a size (a minimum width, say); those lines say `differs` and show what was asked and what the app accepted, so an agent can tell the user instead of claiming success.
+
+**Undo.** `paneful save` writes every window's position to `~/.config/paneful/layout.json` (or a file you name), and `paneful restore` puts them back and reports any it couldn't find. Have the agent save first and you can always get your desktop back.
+
+**For programs.** Add `--json` to any command. `list --json` gives the app, bundle id, title, display, screen fractions and the frame in points; moves add the requested frame and `matchesTarget`. Errors exit with status 1.
 
 To get the result in the recording above, give your agent a few lines of context (a `CLAUDE.md`, a system prompt, or just paste it) and then talk to it normally:
 
 ```markdown
 You arrange windows on this Mac with the `paneful` command line tool.
-Run `paneful help` to see the commands. Act right away, then reply in one short sentence.
+Run `paneful help` to see the commands. Run `paneful save` before you move anything.
+Check the output: if a line says "differs", tell me. Act right away, then reply in one short sentence.
 ```
 
 ```text
@@ -177,7 +186,7 @@ Run `paneful help` to see the commands. Act right away, then reply in one short 
 
 The command line tool talks to the running app, so Paneful has to be open and have the Accessibility permission. The agent itself needs no special permission.
 
-**Trust model.** The command reaches the app through a macOS distributed notification. Any process running in your login session can send one, so any program you run can move your windows through Paneful; it can't do anything beyond that. If that matters to you, quit Paneful or remove the server in `CLI.startServer()` in your fork.
+**Trust model.** The command reaches the app through a macOS distributed notification, which any process in your login session can send. Each request must carry a random token that Paneful writes at launch to `~/Library/Application Support/Paneful/cli-token`, readable only by your user. Sandboxed apps can't read it, so they can't use Paneful to list your window titles or move windows. Unsandboxed programs you run can, but they could already read your files and do far more. Replies are only written into your own temporary folder. If you'd rather have no channel at all, remove `CLI.startServer()` in your fork.
 
 ## Build your own
 
@@ -216,6 +225,7 @@ After changing the guide, run `bash build.sh snapshot` to re-render each step in
 - Fullscreen and minimized windows, and windows on other Spaces, are left out of "tile all".
 - Some apps enforce a minimum window size, so a window can end up larger than its cell.
 - Shortcuts are set in the config file. There is no shortcut recorder, on purpose: the config file is the only source of settings, which keeps the code small.
+- Errors and the permission prompts follow your system language (English or Simplified Chinese); the rest of the interface is English.
 - No downloadable release yet. You build it from source, and without `scripts/setup-signing.sh` every rebuild loses the Accessibility permission.
 - Tested by the author on Apple silicon with macOS 27 and two displays. Intel Macs and older macOS versions should work but haven't been tried.
 

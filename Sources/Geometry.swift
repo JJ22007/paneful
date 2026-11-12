@@ -82,12 +82,17 @@ func onOuterHalf(_ c: CGRect, visible v: CGRect, right: Bool, tol: CGFloat = 30)
     return right ? (atRight && !atLeft) : (atLeft && !atRight)
 }
 
+/// Display indices sorted left to right, then top to bottom. `paneful --display N` counts in this order.
+func displayOrder(_ frames: [CGRect]) -> [Int] {
+    frames.indices.sorted { (frames[$0].minX, frames[$0].minY) < (frames[$1].minX, frames[$1].minY) }
+}
+
 /// The display one step to the left or right of frames[i], or nil with a single display.
 /// Displays are ordered left to right (top to bottom when stacked) and the order wraps around,
 /// so the key keeps working however the displays are arranged.
 func neighborDisplay(of i: Int, in frames: [CGRect], left: Bool) -> Int? {
     guard frames.count > 1 else { return nil }
-    let order = frames.indices.sorted { (frames[$0].minX, frames[$0].minY) < (frames[$1].minX, frames[$1].minY) }
+    let order = displayOrder(frames)
     guard let at = order.firstIndex(of: i) else { return nil }
     return order[(at + (left ? order.count - 1 : 1)) % order.count]
 }

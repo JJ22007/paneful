@@ -3,7 +3,7 @@
 //   Paneful --selftest        test geometry, shortcuts and config handling
 //   Paneful --check <file>    validate a config file
 //   Paneful --snapshot <dir>  render each welcome step to a PNG
-//   Paneful list | tile | run | place | actions   command line interface, see CLI.swift
+//   Paneful list | displays | tile | run | place | fullscreen | save | restore | actions   command line interface, see CLI.swift
 
 import AppKit
 import SwiftUI
@@ -49,6 +49,20 @@ func selfTest() -> Int32 {
            onOuterHalf(rh, visible: v, right: true) && !onOuterHalf(lh, visible: v, right: true) && !onOuterHalf(v, visible: v, right: true)
            && onOuterHalf(lh, visible: v, right: false) && !onOuterHalf(c, visible: v, right: false))
 
+    expect("display order: left to right, then top to bottom", displayOrder(displays) == [2, 0, 1]
+        && displayOrder([CGRect(x: 0, y: 0, width: 100, height: 100), CGRect(x: 0, y: -100, width: 100, height: 100)]) == [1, 0])
+
+    let tmp = "/var/folders/xy/T/"
+    expect("cli: reply path accepted only as our own file in the temp folder",
+           CLI.isSafeReplyPath(tmp + "paneful-\(UUID().uuidString).reply", tmp: tmp)
+           && !CLI.isSafeReplyPath(tmp + "../../Users/me/.zshrc.reply", tmp: tmp)
+           && !CLI.isSafeReplyPath(tmp + "paneful-x/../../evil-\(UUID().uuidString).reply", tmp: tmp)
+           && !CLI.isSafeReplyPath(tmp + "paneful-not-a-uuid.reply", tmp: tmp)
+           && !CLI.isSafeReplyPath("/tmp/paneful-\(UUID().uuidString).reply", tmp: tmp))
+    let m = CLI.matchWindows(saved: [("a", "Notes"), ("a", "Old title"), ("b", "Gone"), ("c", "Mail")],
+                             current: [("a", "Draft"), ("c", "Mail"), ("a", "Notes")])
+    expect("restore: match by app and title, then by app, else missing", m == [2, 0, nil, 1], "\(m)")
+
     expect("tile rows for 2/3/4/5/6", [2, 3, 4, 5, 6].map(defaultTileRows) == [[2], [3], [2, 2], [3, 2], [3, 3]])
     expect("tile rows for 7/8/10", [7, 8, 10].map(defaultTileRows) == [[3, 2, 2], [3, 3, 2], [4, 3, 3]])
     check("tile 4, bottom right", tileLayout(rows: [2, 2], visible: v)[3], CGRect(x: 756, y: 483, width: 756, height: 450))
@@ -64,12 +78,15 @@ func selfTest() -> Int32 {
     func decode(_ json: String) -> Config? { try? JSONDecoder().decode(Config.self, from: Data(json.utf8)) }
     expect("config: empty object equals defaults", decode("{}") == Config())
     expect("config: crossDisplays defaults to off and can be switched on", decode("{}")?.crossDisplays == false && decode(#"{"crossDisplays": true}"#)?.crossDisplays == true)
-    let partial = decode(#"{"gap": 8, "shortcuts": {"maximize": "ctrl+alt+m", "center": ""}, "tile": {"rows": {"5": [2, 3]}}}"#)
-    expect("config: partial file keeps other defaults", partial?.gap == 8 && partial?.shortcuts["maximize"] == "ctrl+alt+m"
+    let partial = decode(#"{"gap": 8, "shortcuts": {"maximize": "ctrl+alt+space", "center": ""}, "tile": {"rows": {"5": [2, 3]}}}"#)
+    expect("config: partial file keeps other defaults", partial?.gap == 8 && partial?.shortcuts["maximize"] == "ctrl+alt+space"
         && partial?.shortcuts["leftHalf"] == "ctrl+alt+left" && partial?.tile.rows(for: 5) == [2, 3] && partial?.tile.rows(for: 4) == [2, 2])
     expect("config: welcome example parses cleanly", decode(exampleSnippet)?.custom.count == 2 && decode(exampleSnippet)?.warnings().isEmpty == true)
     let bad = decode(#"{"shortcuts": {"nope": "ctrl+a", "center": "what"}, "custom": [{"name": "x", "x": 0.8, "y": 0, "w": 0.5, "h": 1}], "tile": {"rows": {"5": [2, 2]}}}"#)
     expect("config: four problems are reported", bad?.warnings().count == 4, "\(bad?.warnings() ?? [])")
+    let dup = decode(#"{"shortcuts": {"maximize": "ctrl+alt+c"}}"#)
+    expect("config: two actions on one shortcut are reported", dup?.warnings().contains { $0.contains("center") && $0.contains("maximize") } == true, "\(dup?.warnings() ?? [])")
+    expect("config: defaults have no warnings", Config().warnings().isEmpty, "\(Config().warnings())")
     expect("config: broken JSON is an error", decode("{ \"gap\": }") == nil)
 
     let f = CGRect(x: 0, y: 0, width: 1512, height: 982)

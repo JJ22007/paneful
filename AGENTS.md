@@ -23,7 +23,7 @@ The self-test (`Paneful --selftest`) covers geometry, key parsing, config decodi
 
 `Paneful --check <file>` validates a config file. Every file in `examples/` must pass it.
 
-The installed app also answers `paneful list | tile | run | place | fullscreen | actions` (see `Sources/CLI.swift`). With the app running and the permission granted, `paneful list` is a quick way to check real window positions after a change.
+The installed app also answers `paneful list | displays | tile | run | place | fullscreen | save | restore | actions`, each with `--json` (see `Sources/CLI.swift`). With the app running and the permission granted, `paneful list` is a quick way to check real window positions after a change. Moves report the frame read back from macOS, so you can check a layout change against real windows; run `paneful save` first and `paneful restore` afterwards to leave the user's desktop as you found it.
 
 ## What you cannot verify yourself
 
@@ -49,7 +49,7 @@ All sources are in `Sources/`.
 | `Glyph.swift` | The small layout icons used in the menu and the welcome screens |
 | `App.swift` | `AppDelegate`: status item, menu, applying config to hotkeys |
 | `Welcome.swift` | SwiftUI onboarding: intro, permission, shortcuts, customize |
-| `CLI.swift` | The `paneful` command line client and the in-app server it talks to (distributed notification in, reply file out) |
+| `CLI.swift` | The `paneful` command line client and the in-app server it talks to (distributed notification in with a per-launch token, reply file out), read-back reporting, save and restore |
 | `MenuBarIcon.swift` | The menu bar icon (Lucide `layout-panel-left`), drawn in code as a template image |
 | `main.swift` | Entry point, `--selftest`, `--check`, `--snapshot`, and the `repoURL` constant |
 
@@ -60,6 +60,8 @@ All sources are in `Sources/`.
 - **The config file is the single source of truth** (`~/.config/paneful/config.json`). Menu toggles write to it through `ConfigStore.update`. Do not add a second settings store.
 - **Config must stay forgiving.** Every field is optional when decoding. A bad entry produces a warning from `Config.warnings()` and is skipped; it must never crash the app or block the rest of the config.
 - **Left/right half across displays.** A repeated press cycles widths. With `crossDisplays` on and more than one display it moves the window to the next display instead (`neighborDisplay` in `Geometry.swift`, used in `WindowManager.perform`).
+- **The CLI channel is guarded.** Requests must carry the token from `CLI.tokenURL` and reply into the temp folder (`CLI.isSafeReplyPath`). Keep both checks if you change the protocol, and never let a request make the app read or write a path it names; file I/O for `save` and `restore` happens in the client.
+- **Messages people see when something is wrong** (permission, taken shortcuts) go through `L(english, chinese)` in `App.swift`. The rest of the UI is English.
 - **Hotkeys are re-registered from scratch** on every config change in `AppDelegate.applyConfig()`.
 
 ## Common tasks
