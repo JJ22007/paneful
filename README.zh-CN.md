@@ -2,7 +2,7 @@
 
 <p align="center">
   <b>一个小巧的 macOS 窗口管理器,给你和你的 AI 编程助手拿去 Fork、去改造。</b><br>
-  1,830 行 Swift,零依赖,一条 <code>swiftc</code> 命令就能编译。自带命令行,agent 可以直接用它帮你摆窗口。
+  约 2,100 行 Swift,零依赖,一条 <code>swiftc</code> 命令就能编译。自带命令行,agent 可以直接用它帮你摆窗口。
 </p>
 
 <p align="center">
@@ -14,9 +14,9 @@
 </p>
 <p align="center"><sub>对 Claude Code 说一句话,杂乱的桌面瞬间归位。真实录屏,agent 思考的几秒做了加速。</sub></p>
 
-Paneful 是一个菜单栏 App,用键盘或者让 agent 把窗口摆到位。它不打算做一个更好的 Rectangle,而是要小到你或你的 AI 编程助手能把它整个读完,再改成你自己的工具:13 个文件、1,830 行 Swift,没有第三方依赖,不需要 Xcode 工程,每次编译都会跑一遍自测。
+Paneful 是一个菜单栏 App,用键盘或者让 agent 把窗口摆到位。它不打算做一个更好的 Rectangle,而是要小到你或你的 AI 编程助手能把它整个读完,再改成你自己的工具:13 个文件、约 2,100 行 Swift,没有第三方依赖,不需要 Xcode 工程,每次编译都会跑一遍自测。
 
-> 界面是英文的。想要中文界面?这正好是一个很适合交给 AI 助手的改造任务,见下文「做一个属于你自己的」。
+> 界面是英文的,出错和权限提示会跟随系统语言显示中文。想要完整的中文界面?这正好是一个很适合交给 AI 助手的改造任务,见下文「做一个属于你自己的」。
 
 ## 该选哪一个
 
@@ -30,7 +30,7 @@ Paneful 只适合少数人,先把实话说在前面。
 | 带 MCP、工作区、截图、OCR 的 agent 工具箱 | [Plonk](https://github.com/ostapondo/Plonk) |
 | 一个小到能完全改成自己的窗口管理器,改动交给 agent 来做 | Paneful |
 
-Paneful 拿来交换的是:源码大约 87 KB,只是上面这些工具的一小部分,agent 一次就能读完;[`AGENTS.md`](AGENTS.md) 告诉 agent 每样东西在哪、哪些事它自己验证不了;`paneful` 命令不需要 Node、MCP 配置或 Lua,agent 能跑 shell 命令就能列出和摆放窗口。
+Paneful 拿来交换的是:源码大约 105 KB,只是上面这些工具的一小部分,agent 一次就能读完;[`AGENTS.md`](AGENTS.md) 告诉 agent 每样东西在哪、哪些事它自己验证不了;`paneful` 命令不需要 Node、MCP 配置或 Lua,agent 能跑 shell 命令就能列出和摆放窗口。
 
 ## 功能
 
@@ -92,7 +92,7 @@ bash scripts/setup-signing.sh
   "gap": 8,
   "dragSnap": false,
   "shortcuts": {
-    "maximize": "ctrl+alt+m",
+    "maximize": "ctrl+alt+space",
     "center": ""
   },
   "custom": [
@@ -133,25 +133,34 @@ ln -s ~/Applications/Paneful.app/Contents/MacOS/Paneful /usr/local/bin/paneful
 
 | 命令 | 作用 |
 |---|---|
-| `paneful list` | 列出所有窗口:App、标题、位置(屏幕比例) |
+| `paneful list` | 列出所有窗口:App、标题、所在显示器、位置(屏幕比例) |
+| `paneful displays` | 列出显示器,从左到右编号 |
 | `paneful tile` | 把所有窗口排成网格 |
 | `paneful place 0 0 0.6 1 --app Safari` | 把窗口放到任意位置,四个数字是 `x y w h`,范围 0~1 |
-| `paneful run leftHalf --title notes` | 对指定窗口执行内置动作 |
+| `paneful run leftHalf --title notes --display 2` | 对指定窗口执行内置动作,可以指定放到哪块显示器 |
 | `paneful fullscreen off --app Keynote` | 进入或退出系统全屏 |
+| `paneful save` / `paneful restore` | 记下所有窗口的位置,之后一次全部还原 |
 | `paneful actions` | 列出动作名 |
 
 `--app` 匹配 App 名或 bundle id,`--title` 匹配窗口标题,都是不分大小写的子串匹配;都不写就作用于当前窗口。用 `&&` 串起来可以一次摆好整个布局。
+
+**摆完会核对。** 每次移动后,Paneful 都会向系统读回窗口的真实位置和大小再报告。有的 App 不接受某个尺寸(比如有最小宽度),这一行会标 `differs`,写出要求的和实际的尺寸,agent 就能如实告诉你,而不是说"摆好了"。
+
+**能撤销。** `paneful save` 把所有窗口的位置写到 `~/.config/paneful/layout.json`(也可以指定文件),`paneful restore` 把它们放回去,并报告找不到的窗口。让 agent 动手前先 save,桌面就总能还原。
+
+**给程序用。** 任何命令加 `--json` 输出 JSON。`list --json` 包含 App、bundle id、标题、显示器、屏幕比例和以点为单位的位置;移动类命令还会带上要求的位置和 `matchesTarget`。出错时退出码为 1。
 
 给你的 agent 几行说明(写进 `CLAUDE.md`、系统提示词,或者直接粘贴),之后正常说话就行:
 
 ```markdown
 You arrange windows on this Mac with the `paneful` command line tool.
-Run `paneful help` to see the commands. Act right away, then reply in one short sentence.
+Run `paneful help` to see the commands. Run `paneful save` before you move anything.
+Check the output: if a line says "differs", tell me. Act right away, then reply in one short sentence.
 ```
 
 命令行是和正在运行的 App 通信的,所以 Paneful 需要开着并且已有辅助功能权限;agent 本身不需要任何特殊权限。
 
-**信任模型。** 命令行通过 macOS 的分布式通知把请求发给 App。你登录会话里的任何进程都能发这种通知,所以你运行的任何程序都能借 Paneful 移动你的窗口,但也只能做这件事。如果介意,可以退出 Paneful,或者在自己的 Fork 里删掉 `CLI.startServer()`。
+**信任模型。** 命令行通过 macOS 的分布式通知把请求发给 App,登录会话里的任何进程都能发这种通知。每个请求都必须带上一个随机令牌,Paneful 启动时把它写到 `~/Library/Application Support/Paneful/cli-token`,只有你的用户能读。沙盒里的 App 读不到它,所以没法借 Paneful 读取窗口标题或移动窗口;你自己运行的非沙盒程序可以,但它们本来就能读你的文件、做更多的事。回复只会写进你自己的临时目录。如果完全不想要这个通道,在自己的 Fork 里删掉 `CLI.startServer()`。
 
 ## 做一个属于你自己的
 

@@ -86,6 +86,13 @@ struct Config: Codable, Equatable {
             }
         }
         if tile.max < 1 { out.append("tile.max must be at least 1") }
+        // Two entries on one shortcut: only the first one registered would ever run
+        var owners: [String: [String]] = [:]
+        for (name, key) in shortcuts where Action(rawValue: name) != nil { if let k = KeyCombo.parse(key) { owners[k.pretty, default: []].append(name) } }
+        for l in custom { if let key = l.key, let k = KeyCombo.parse(key) { owners[k.pretty, default: []].append(l.name) } }
+        for (combo, names) in owners.sorted(by: { $0.key < $1.key }) where names.count > 1 {
+            out.append("\(combo) is assigned to more than one thing: \(names.sorted().joined(separator: ", "))")
+        }
         return out
     }
 }
