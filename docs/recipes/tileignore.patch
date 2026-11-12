@@ -1,0 +1,93 @@
+diff --git a/README.md b/README.md
+index eb9ddc4..b970523 100644
+--- a/README.md
++++ b/README.md
+@@ -118,6 +118,7 @@ The config lives at `~/.config/paneful/config.json`. Open it from the menu bar w
+ | `custom` | Your own positions. `x`, `y`, `w`, `h` are fractions of the screen from 0 to 1, with the origin at the top left. `key` is optional. |
+ | `tile.max` | The most windows "tile all" will arrange. The rest stay put; the most recently used win. |
+ | `tile.rows` | Window count → windows per row. `"5": [2, 3]` puts two on top and three below. Unlisted counts use the default rule. |
++| `tile.exclude` | Bundle ids of apps "tile all" leaves alone, e.g. `["com.apple.finder"]`. `paneful list` shows each window's bundle id. |
+ 
+ **Shortcut syntax.** Modifiers plus one key, joined with `+`, case-insensitive. Modifiers are `ctrl`, `alt`, `shift`, `cmd`. Keys are letters, digits, `left` `right` `up` `down`, `return`, `delete`, `space`, `tab`, `escape`, `f1`–`f12`, and common punctuation.
+ 
+diff --git a/README.zh-CN.md b/README.zh-CN.md
+index ba3a98a..01e0f2d 100644
+--- a/README.zh-CN.md
++++ b/README.zh-CN.md
+@@ -115,6 +115,7 @@ bash scripts/setup-signing.sh
+ | `custom` | 自定义位置。`x` `y` `w` `h` 是 0~1 的屏幕比例,原点在左上角。`key` 可以不写。 |
+ | `tile.max` | 一键排列最多排几个窗口。其余保持不动,优先排最近用过的。 |
+ | `tile.rows` | 窗口数 → 每行放几个。`"5": [2, 3]` 表示上排 2 个、下排 3 个。没写的数量用默认规则。 |
++| `tile.exclude` | 一键排列要跳过的 App,用 bundle id 列出,例如 `["com.apple.finder"]`。`paneful list` 能看到每个窗口的 bundle id。 |
+ 
+ **快捷键写法**:修饰键加一个按键,用 `+` 连接,不分大小写。修饰键有 `ctrl` `alt` `shift` `cmd`;按键可以是字母、数字、`left` `right` `up` `down`、`return`、`delete`、`space`、`tab`、`escape`、`f1`~`f12` 和常见符号。
+ 
+diff --git a/Sources/Config.swift b/Sources/Config.swift
+index 43e939d..7e43543 100644
+--- a/Sources/Config.swift
++++ b/Sources/Config.swift
+@@ -23,12 +23,15 @@ struct TileConfig: Codable, Equatable {
+     /// Window count → windows per row. "5": [3, 2] means three on top and two below.
+     /// Counts that are not listed use the default rule.
+     var rows: [String: [Int]] = [:]
++    /// Bundle ids of apps that "tile all" never touches, e.g. "com.apple.finder"
++    var exclude: [String] = []
+ 
+     init() {}
+     init(from d: Decoder) throws {
+         let c = try d.container(keyedBy: CodingKeys.self)
+         max = try c.decodeIfPresent(Int.self, forKey: .max) ?? 6
+         rows = try c.decodeIfPresent([String: [Int]].self, forKey: .rows) ?? [:]
++        exclude = try c.decodeIfPresent([String].self, forKey: .exclude) ?? []
+     }
+ 
+     func rows(for n: Int) -> [Int] {
+@@ -86,6 +89,7 @@ struct Config: Codable, Equatable {
+             }
+         }
+         if tile.max < 1 { out.append("tile.max must be at least 1") }
++        if tile.exclude.contains(where: { $0.trimmingCharacters(in: .whitespaces).isEmpty }) { out.append("tile.exclude: a bundle id can't be empty") }
+         // Two entries on one shortcut: only the first one registered would ever run
+         var owners: [String: [String]] = [:]
+         for (name, key) in shortcuts where Action(rawValue: name) != nil { if let k = KeyCombo.parse(key) { owners[k.pretty, default: []].append(name) } }
+diff --git a/Sources/WindowManager.swift b/Sources/WindowManager.swift
+index 494733c..f86acd0 100644
+--- a/Sources/WindowManager.swift
++++ b/Sources/WindowManager.swift
+@@ -98,7 +98,8 @@ final class WindowManager {
+     /// Returns each window that was moved and the frame it was asked to take.
+     @discardableResult
+     func tileAll() -> [(window: AXUIElement, target: CGRect)] {
+-        let all = AX.windowsFrontToBack()
++        let skip = Set(config.tile.exclude)
++        let all = AX.windowsFrontToBack().filter { skip.isEmpty || !skip.contains(AX.describe($0.window).bundleID) }
+         guard !all.isEmpty else { NSSound.beep(); return [] }
+         var placed: [(window: AXUIElement, target: CGRect)] = []
+         var order: [NSScreen] = []
+diff --git a/Sources/main.swift b/Sources/main.swift
+index 78cbe86..c98e47d 100644
+--- a/Sources/main.swift
++++ b/Sources/main.swift
+@@ -84,6 +84,9 @@ func selfTest() -> Int32 {
+     expect("config: welcome example parses cleanly", decode(exampleSnippet)?.custom.count == 2 && decode(exampleSnippet)?.warnings().isEmpty == true)
+     let bad = decode(#"{"shortcuts": {"nope": "ctrl+a", "center": "what"}, "custom": [{"name": "x", "x": 0.8, "y": 0, "w": 0.5, "h": 1}], "tile": {"rows": {"5": [2, 2]}}}"#)
+     expect("config: four problems are reported", bad?.warnings().count == 4, "\(bad?.warnings() ?? [])")
++    let ex = decode(#"{"tile": {"exclude": ["com.apple.finder"]}}"#)
++    expect("config: tile.exclude is read, defaults to empty", ex?.tile.exclude == ["com.apple.finder"] && decode("{}")?.tile.exclude == [] && ex?.warnings().isEmpty == true)
++    expect("config: an empty bundle id in tile.exclude is reported", decode(#"{"tile": {"exclude": [""]}}"#)?.warnings().count == 1)
+     let dup = decode(#"{"shortcuts": {"maximize": "ctrl+alt+c"}}"#)
+     expect("config: two actions on one shortcut are reported", dup?.warnings().contains { $0.contains("center") && $0.contains("maximize") } == true, "\(dup?.warnings() ?? [])")
+     expect("config: defaults have no warnings", Config().warnings().isEmpty, "\(Config().warnings())")
+diff --git a/examples/four-only.json b/examples/four-only.json
+index a14c761..02a5fd6 100644
+--- a/examples/four-only.json
++++ b/examples/four-only.json
+@@ -1,6 +1,7 @@
+ {
+   "tile": {
+     "max": 4,
+-    "rows": { "3": [1, 2] }
++    "rows": { "3": [1, 2] },
++    "exclude": ["com.apple.finder"]
+   }
+ }

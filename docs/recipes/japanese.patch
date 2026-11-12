@@ -1,0 +1,487 @@
+diff --git a/AGENTS.md b/AGENTS.md
+index 2ec9a0c..5d8e9be 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -61,7 +61,7 @@ All sources are in `Sources/`.
+ - **Config must stay forgiving.** Every field is optional when decoding. A bad entry produces a warning from `Config.warnings()` and is skipped; it must never crash the app or block the rest of the config.
+ - **Left/right half across displays.** A repeated press cycles widths. With `crossDisplays` on and more than one display it moves the window to the next display instead (`neighborDisplay` in `Geometry.swift`, used in `WindowManager.perform`).
+ - **The CLI channel is guarded.** Requests must carry the token from `CLI.tokenURL` and reply into the temp folder (`CLI.isSafeReplyPath`). Keep both checks if you change the protocol, and never let a request make the app read or write a path it names; file I/O for `save` and `restore` happens in the client.
+-- **Messages people see when something is wrong** (permission, taken shortcuts) go through `L(english, chinese)` in `App.swift`. The rest of the UI is English.
++- **Every string people see** goes through `L(english, chinese, ja:)` in `App.swift`; a language you leave out falls back to English. The UI is fully translated to Japanese. Chinese covers only the permission and error messages. When you add UI text, add the Japanese with it. `bash build.sh snapshot` renders in the system language, so run it with English as the system language or the docs images turn Japanese.
+ - **Hotkeys are re-registered from scratch** on every config change in `AppDelegate.applyConfig()`.
+ 
+ ## Common tasks
+diff --git a/README.md b/README.md
+index eb9ddc4..09627c5 100644
+--- a/README.md
++++ b/README.md
+@@ -225,7 +225,7 @@ After changing the guide, run `bash build.sh snapshot` to re-render each step in
+ - Fullscreen and minimized windows, and windows on other Spaces, are left out of "tile all".
+ - Some apps enforce a minimum window size, so a window can end up larger than its cell.
+ - Shortcuts are set in the config file. There is no shortcut recorder, on purpose: the config file is the only source of settings, which keeps the code small.
+-- Errors and the permission prompts follow your system language (English or Simplified Chinese); the rest of the interface is English.
++- The whole interface follows your system language in Japanese and English. Errors and the permission prompts are also translated into Simplified Chinese; the rest of the interface is English there.
+ - No downloadable release yet. You build it from source, and without `scripts/setup-signing.sh` every rebuild loses the Accessibility permission.
+ - Tested by the author on Apple silicon with macOS 27 and two displays. Intel Macs and older macOS versions should work but haven't been tried.
+ 
+diff --git a/README.zh-CN.md b/README.zh-CN.md
+index ba3a98a..2a05f5a 100644
+--- a/README.zh-CN.md
++++ b/README.zh-CN.md
+@@ -16,7 +16,7 @@
+ 
+ Paneful 是一个菜单栏 App,用键盘或者让 agent 把窗口摆到位。它不打算做一个更好的 Rectangle,而是要小到你或你的 AI 编程助手能把它整个读完,再改成你自己的工具:13 个文件、约 2,100 行 Swift,没有第三方依赖,不需要 Xcode 工程,每次编译都会跑一遍自测。
+ 
+-> 界面是英文的,出错和权限提示会跟随系统语言显示中文。想要完整的中文界面?这正好是一个很适合交给 AI 助手的改造任务,见下文「做一个属于你自己的」。
++> 界面会跟随系统语言显示日文或英文;出错和权限提示还会显示中文,其余界面在中文系统下仍是英文。想要完整的中文界面?这正好是一个很适合交给 AI 助手的改造任务,见下文「做一个属于你自己的」。
+ 
+ ## 该选哪一个
+ 
+diff --git a/Sources/Actions.swift b/Sources/Actions.swift
+index 577442d..8e023ef 100644
+--- a/Sources/Actions.swift
++++ b/Sources/Actions.swift
+@@ -13,26 +13,26 @@ enum Action: String, CaseIterable {
+ 
+     var title: String {
+         switch self {
+-        case .tileAll: return "Tile All Windows"
+-        case .leftHalf: return "Left Half"
+-        case .rightHalf: return "Right Half"
+-        case .topHalf: return "Top Half"
+-        case .bottomHalf: return "Bottom Half"
+-        case .topLeft: return "Top Left"
+-        case .topRight: return "Top Right"
+-        case .bottomLeft: return "Bottom Left"
+-        case .bottomRight: return "Bottom Right"
+-        case .firstThird: return "First Third"
+-        case .centerThird: return "Center Third"
+-        case .lastThird: return "Last Third"
+-        case .firstTwoThirds: return "First Two Thirds"
+-        case .lastTwoThirds: return "Last Two Thirds"
+-        case .maximize: return "Maximize"
+-        case .almostMaximize: return "Almost Maximize"
+-        case .center: return "Center"
+-        case .restore: return "Restore"
+-        case .nextDisplay: return "Walk Right"
+-        case .prevDisplay: return "Walk Left"
++        case .tileAll: return L("Tile All Windows", ja: "すべてのウインドウをタイル表示")
++        case .leftHalf: return L("Left Half", ja: "左半分")
++        case .rightHalf: return L("Right Half", ja: "右半分")
++        case .topHalf: return L("Top Half", ja: "上半分")
++        case .bottomHalf: return L("Bottom Half", ja: "下半分")
++        case .topLeft: return L("Top Left", ja: "左上")
++        case .topRight: return L("Top Right", ja: "右上")
++        case .bottomLeft: return L("Bottom Left", ja: "左下")
++        case .bottomRight: return L("Bottom Right", ja: "右下")
++        case .firstThird: return L("First Third", ja: "左 1/3")
++        case .centerThird: return L("Center Third", ja: "中央 1/3")
++        case .lastThird: return L("Last Third", ja: "右 1/3")
++        case .firstTwoThirds: return L("First Two Thirds", ja: "左 2/3")
++        case .lastTwoThirds: return L("Last Two Thirds", ja: "右 2/3")
++        case .maximize: return L("Maximize", ja: "最大化")
++        case .almostMaximize: return L("Almost Maximize", ja: "ほぼ最大化")
++        case .center: return L("Center", ja: "中央")
++        case .restore: return L("Restore", ja: "元に戻す")
++        case .nextDisplay: return L("Walk Right", ja: "右へ移動")
++        case .prevDisplay: return L("Walk Left", ja: "左へ移動")
+         }
+     }
+ 
+diff --git a/Sources/App.swift b/Sources/App.swift
+index 1f19528..6792e46 100644
+--- a/Sources/App.swift
++++ b/Sources/App.swift
+@@ -3,10 +3,13 @@
+ import AppKit
+ import ServiceManagement
+ 
+-/// English or Simplified Chinese, following the system language. Used for the messages people
+-/// see when something goes wrong; the rest of the interface is English.
+-func L(_ en: String, _ zh: String) -> String {
+-    Locale.preferredLanguages.first?.hasPrefix("zh") == true ? zh : en
++/// English, Simplified Chinese or Japanese, following the system language. A language that is
++/// not given falls back to English. Every string people see goes through this.
++func L(_ en: String, _ zh: String? = nil, ja: String? = nil) -> String {
++    let lang = Locale.preferredLanguages.first ?? "en"
++    if lang.hasPrefix("ja") { return ja ?? en }
++    if lang.hasPrefix("zh") { return zh ?? en }
++    return en
+ }
+ 
+ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+@@ -50,7 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+         let now = AX.trusted
+         if now != wasTrusted { logLine("accessibility changed: \(now)"); wasTrusted = now }
+         statusItem.button?.appearsDisabled = !now
+-        statusItem.button?.toolTip = now ? "Paneful" : L("Paneful: Accessibility permission needed", "Paneful:需要辅助功能权限")
++        statusItem.button?.toolTip = now ? "Paneful" : L("Paneful: Accessibility permission needed", "Paneful:需要辅助功能权限", ja: "Paneful:アクセシビリティの許可が必要です")
+     }
+ 
+     /// Re-register every hotkey after the config changes (launch, manual edit, menu toggle)
+@@ -76,16 +79,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+         let cfg = store.config
+ 
+         if !AX.trusted {
+-            menu.addItem(item(L("Accessibility Permission Needed…", "需要辅助功能权限…"), #selector(openAccessibility), symbol: "exclamationmark.triangle.fill"))
++            menu.addItem(item(L("Accessibility Permission Needed…", "需要辅助功能权限…", ja: "アクセシビリティの許可が必要です…"), #selector(openAccessibility), symbol: "exclamationmark.triangle.fill"))
+             menu.addItem(.separator())
+         }
+         var problems = cfg.warnings()
+-        if let e = store.parseError { problems.insert(e + " (still using the last good config)", at: 0) }
++        if let e = store.parseError { problems.insert(e + L(" (still using the last good config)", ja: "(直前の正常な設定を使用中)"), at: 0) }
+         problems += takenKeys.sorted().map {
+-            L("Shortcut \(KeyCombo.parse($0)?.pretty ?? $0) is taken by another app", "快捷键 \(KeyCombo.parse($0)?.pretty ?? $0) 已被其他 App 占用")
++            L("Shortcut \(KeyCombo.parse($0)?.pretty ?? $0) is taken by another app", "快捷键 \(KeyCombo.parse($0)?.pretty ?? $0) 已被其他 App 占用",
++              ja: "ショートカット \(KeyCombo.parse($0)?.pretty ?? $0) は他のアプリで使われています")
+         }
+         if !problems.isEmpty {
+-            let head = item(problems.count == 1 ? "1 Config Problem" : "\(problems.count) Config Problems", nil, symbol: "exclamationmark.triangle")
++            let head = item(L(problems.count == 1 ? "1 Config Problem" : "\(problems.count) Config Problems", ja: "設定の問題 \(problems.count) 件"), nil, symbol: "exclamationmark.triangle")
+             let sub = NSMenu()
+             for p in problems {
+                 let it = NSMenuItem(title: p, action: nil, keyEquivalent: "")
+@@ -93,7 +97,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+                 sub.addItem(it)
+             }
+             sub.addItem(.separator())
+-            sub.addItem(item("Open Config File…", #selector(openConfig)))
++            sub.addItem(item(L("Open Config File…", ja: "設定ファイルを開く…"), #selector(openConfig)))
+             head.submenu = sub
+             menu.addItem(head)
+             menu.addItem(.separator())
+@@ -110,7 +114,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+         }
+ 
+         if !cfg.custom.isEmpty {
+-            menu.addItem(.sectionHeader(title: "Custom"))
++            menu.addItem(.sectionHeader(title: L("Custom", ja: "カスタム")))
+             for (i, l) in cfg.custom.enumerated() {
+                 let it = item(l.name, #selector(runCustom(_:)), key: l.key)
+                 it.image = glyphImage([l.unit])
+@@ -120,16 +124,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+             menu.addItem(.separator())
+         }
+ 
+-        let drag = item("Snap When Dragged to Screen Edge", #selector(toggleDrag))
++        let drag = item(L("Snap When Dragged to Screen Edge", ja: "画面の端にドラッグしてスナップ"), #selector(toggleDrag))
+         drag.state = cfg.dragSnap ? .on : .off
+         menu.addItem(drag)
+ 
+-        let gapItem = item("Window Gap", nil)
++        let gapItem = item(L("Window Gap", ja: "ウインドウの間隔"), nil)
+         let gapMenu = NSMenu()
+         var gaps = [0, 4, 8, 12, 16]
+         if !gaps.contains(Int(cfg.gap)) { gaps.append(Int(cfg.gap)); gaps.sort() }
+         for g in gaps {
+-            let it = item(g == 0 ? "None" : "\(g) pt", #selector(setGap(_:)))
++            let it = item(g == 0 ? L("None", ja: "なし") :"\(g) pt", #selector(setGap(_:)))
+             it.tag = g
+             it.state = Int(cfg.gap) == g ? .on : .off
+             gapMenu.addItem(it)
+@@ -137,16 +141,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+         gapItem.submenu = gapMenu
+         menu.addItem(gapItem)
+ 
+-        let login = item("Launch at Login", #selector(toggleLogin))
++        let login = item(L("Launch at Login", ja: "ログイン時に起動"), #selector(toggleLogin))
+         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
+         menu.addItem(login)
+ 
+         menu.addItem(.separator())
+-        menu.addItem(item("Edit Config File…", #selector(openConfig), symbol: "curlybraces"))
+-        menu.addItem(item("Example Configs", #selector(openExamples), symbol: "book"))
+-        menu.addItem(item("Welcome Guide…", #selector(showWelcome), symbol: "sparkles"))
++        menu.addItem(item(L("Edit Config File…", ja: "設定ファイルを編集…"), #selector(openConfig), symbol: "curlybraces"))
++        menu.addItem(item(L("Example Configs", ja: "設定例"), #selector(openExamples), symbol: "book"))
++        menu.addItem(item(L("Welcome Guide…", ja: "ウェルカムガイド…"), #selector(showWelcome), symbol: "sparkles"))
+         menu.addItem(.separator())
+-        menu.addItem(NSMenuItem(title: "Quit Paneful", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
++        menu.addItem(NSMenuItem(title: L("Quit Paneful", ja: "Paneful を終了"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+     }
+ 
+     private func item(_ title: String, _ action: Selector?, key: String? = nil, symbol: String? = nil) -> NSMenuItem {
+@@ -185,7 +189,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+             else { try SMAppService.mainApp.register() }
+         } catch {
+             let alert = NSAlert()
+-            alert.messageText = L("Couldn't change Launch at Login", "无法更改「登录时打开」")
++            alert.messageText = L("Couldn't change Launch at Login", "无法更改「登录时打开」", ja: "「ログイン時に起動」を変更できませんでした")
+             alert.informativeText = error.localizedDescription
+             NSApp.activate(ignoringOtherApps: true)
+             alert.runModal()
+@@ -199,18 +203,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+         explaining = true
+         defer { explaining = false }
+         let alert = NSAlert()
+-        alert.messageText = L("Paneful needs the Accessibility permission", "Paneful 需要辅助功能权限")
++        alert.messageText = L("Paneful needs the Accessibility permission", "Paneful 需要辅助功能权限", ja: "Paneful にはアクセシビリティの許可が必要です")
+         var text = L("Without it, Paneful can't move other apps' windows. Paneful uses it only to read and set window positions.",
+-                     "没有这个权限,Paneful 无法移动其他 App 的窗口。Paneful 只用它来读取和设置窗口位置。")
++                     "没有这个权限,Paneful 无法移动其他 App 的窗口。Paneful 只用它来读取和设置窗口位置。",
++                     ja: "許可がないと、Paneful は他のアプリのウインドウを動かせません。この許可はウインドウの位置の読み取りと設定にだけ使われます。")
+         text += "\n\n" + L("If Paneful is already switched on in the list but nothing happens, that entry belongs to an older build: select it, click “−” to remove it, then add Paneful again.",
+-                            "如果列表里 Paneful 已经是打开的,但仍然没反应,说明那一条属于旧的构建:选中它,点「−」删掉,再重新添加 Paneful。")
++                            "如果列表里 Paneful 已经是打开的,但仍然没反应,说明那一条属于旧的构建:选中它,点「−」删掉,再重新添加 Paneful。",
++                            ja: "リストで Paneful がオンになっているのに何も起こらない場合、その項目は古いビルドのものです。選択して「−」で削除し、Paneful をもう一度追加してください。")
+         if AX.adHocSigned {
+             text += "\n\n" + L("This copy is ad-hoc signed, so macOS forgets the permission every time it is rebuilt. Run scripts/setup-signing.sh once in the source folder to stop that.",
+-                                "这一份是临时签名(ad-hoc)构建的,每次重新编译 macOS 都会忘掉这个权限。在源码目录里运行一次 scripts/setup-signing.sh 就不会再这样。")
++                                "这一份是临时签名(ad-hoc)构建的,每次重新编译 macOS 都会忘掉这个权限。在源码目录里运行一次 scripts/setup-signing.sh 就不会再这样。",
++                                ja: "このコピーはアドホック署名でビルドされているため、再ビルドのたびに macOS が許可を忘れてしまいます。ソースフォルダで scripts/setup-signing.sh を一度実行すると解消します。")
+         }
+         alert.informativeText = text
+-        alert.addButton(withTitle: L("Open System Settings", "打开系统设置"))
+-        alert.addButton(withTitle: L("Later", "稍后"))
++        alert.addButton(withTitle: L("Open System Settings", "打开系统设置", ja: "システム設定を開く"))
++        alert.addButton(withTitle: L("Later", "稍后", ja: "あとで"))
+         NSApp.activate(ignoringOtherApps: true)
+         if alert.runModal() == .alertFirstButtonReturn { AX.promptForTrust(); AX.openSettings() }
+     }
+diff --git a/Sources/Config.swift b/Sources/Config.swift
+index 43e939d..0545c77 100644
+--- a/Sources/Config.swift
++++ b/Sources/Config.swift
+@@ -71,27 +71,28 @@ struct Config: Codable, Equatable {
+     func warnings() -> [String] {
+         var out: [String] = []
+         for (name, key) in shortcuts.sorted(by: { $0.key < $1.key }) {
+-            if Action(rawValue: name) == nil { out.append("shortcuts: there is no action called \"\(name)\"") }
+-            else if !key.isEmpty, KeyCombo.parse(key) == nil { out.append("Can't read shortcut \"\(key)\" (\(name))") }
++            if Action(rawValue: name) == nil { out.append(L("shortcuts: there is no action called \"\(name)\"", ja: "shortcuts:「\(name)」という操作はありません")) }
++            else if !key.isEmpty, KeyCombo.parse(key) == nil { out.append(L("Can't read shortcut \"\(key)\" (\(name))", ja: "ショートカット「\(key)」を読み取れません(\(name))")) }
+         }
+         for l in custom {
+-            if let k = l.key, !k.isEmpty, KeyCombo.parse(k) == nil { out.append("Can't read shortcut \"\(k)\" (\(l.name))") }
++            if let k = l.key, !k.isEmpty, KeyCombo.parse(k) == nil { out.append(L("Can't read shortcut \"\(k)\" (\(l.name))", ja: "ショートカット「\(k)」を読み取れません(\(l.name))")) }
+             if l.w <= 0 || l.h <= 0 || l.x < 0 || l.y < 0 || l.x + l.w > 1.001 || l.y + l.h > 1.001 {
+-                out.append("\"\(l.name)\" is off screen (x, y, w, h must stay within 0–1)")
++                out.append(L("\"\(l.name)\" is off screen (x, y, w, h must stay within 0–1)", ja: "「\(l.name)」が画面からはみ出しています(x, y, w, h は 0〜1 の範囲にしてください)"))
+             }
+         }
+         for (n, r) in tile.rows.sorted(by: { $0.key < $1.key }) {
+             if Int(n) == nil || r.reduce(0, +) != Int(n) || r.contains(where: { $0 <= 0 }) {
+-                out.append("tile.rows \"\(n)\": the row sizes must add up to \(n)")
++                out.append(L("tile.rows \"\(n)\": the row sizes must add up to \(n)", ja: "tile.rows「\(n)」:各行の数の合計が \(n) になる必要があります"))
+             }
+         }
+-        if tile.max < 1 { out.append("tile.max must be at least 1") }
++        if tile.max < 1 { out.append(L("tile.max must be at least 1", ja: "tile.max は 1 以上にしてください")) }
+         // Two entries on one shortcut: only the first one registered would ever run
+         var owners: [String: [String]] = [:]
+         for (name, key) in shortcuts where Action(rawValue: name) != nil { if let k = KeyCombo.parse(key) { owners[k.pretty, default: []].append(name) } }
+         for l in custom { if let key = l.key, let k = KeyCombo.parse(key) { owners[k.pretty, default: []].append(l.name) } }
+         for (combo, names) in owners.sorted(by: { $0.key < $1.key }) where names.count > 1 {
+-            out.append("\(combo) is assigned to more than one thing: \(names.sorted().joined(separator: ", "))")
++            let list = names.sorted().joined(separator: ", ")
++            out.append(L("\(combo) is assigned to more than one thing: \(list)", ja: "\(combo) が複数の操作に割り当てられています:\(list)"))
+         }
+         return out
+     }
+@@ -159,16 +160,17 @@ final class ConfigStore {
+     static func describe(_ e: DecodingError) -> String {
+         func path(_ c: DecodingError.Context) -> String {
+             let p = c.codingPath.map { $0.intValue.map { "[\($0)]" } ?? $0.stringValue }.joined(separator: ".")
+-            return p.isEmpty ? "" : " at \(p)"
++            return p.isEmpty ? "" : L(" at \(p)", ja: "(場所:\(p))")
+         }
++        // The detail text comes from Foundation and stays in English
+         switch e {
+         case .dataCorrupted(let c):
+             let detail = (c.underlyingError as NSError?)?.userInfo[NSDebugDescriptionErrorKey] as? String
+-            return "Invalid JSON\(path(c)): \(detail ?? c.debugDescription)"
+-        case .typeMismatch(_, let c): return "Wrong type\(path(c)): \(c.debugDescription)"
+-        case .keyNotFound(let k, let c): return "Missing field \"\(k.stringValue)\"\(path(c))"
+-        case .valueNotFound(_, let c): return "Missing value\(path(c))"
+-        @unknown default: return "Could not read the config"
++            return L("Invalid JSON", ja: "JSON が正しくありません") + "\(path(c)): \(detail ?? c.debugDescription)"
++        case .typeMismatch(_, let c): return L("Wrong type", ja: "型が違います") + "\(path(c)): \(c.debugDescription)"
++        case .keyNotFound(let k, let c): return L("Missing field \"\(k.stringValue)\"", ja: "フィールド「\(k.stringValue)」がありません") + path(c)
++        case .valueNotFound(_, let c): return L("Missing value", ja: "値がありません") + path(c)
++        @unknown default: return L("Could not read the config", ja: "設定を読み込めませんでした")
+         }
+     }
+ }
+diff --git a/Sources/Welcome.swift b/Sources/Welcome.swift
+index a756f2f..62ee421 100644
+--- a/Sources/Welcome.swift
++++ b/Sources/Welcome.swift
+@@ -78,10 +78,10 @@ struct WelcomeView: View {
+                 }
+                 Spacer()
+                 if model.step > 0 {
+-                    Button("Back") { model.step -= 1 }
++                    Button(L("Back", ja: "戻る")) { model.step -= 1 }
+                         .buttonStyle(SecondaryButton())
+                 }
+-                Button(model.step == WelcomeModel.stepCount - 1 ? "Done" : (model.step == 0 ? "Get Started" : "Continue")) {
++                Button(model.step == WelcomeModel.stepCount - 1 ? L("Done", ja: "完了") : (model.step == 0 ? L("Get Started", ja: "はじめる") : L("Continue", ja: "続ける"))) {
+                     if model.step == WelcomeModel.stepCount - 1 { model.onFinish() } else { model.step += 1 }
+                 }
+                 .buttonStyle(PrimaryButton())
+@@ -105,15 +105,18 @@ private struct IntroStep: View {
+             Text("Paneful")
+                 .font(.system(size: 30, weight: .semibold))
+                 .padding(.top, 20)
+-            Text("Window tiling for macOS that isn’t painful.")
++            Text(L("Window tiling for macOS that isn’t painful.", ja: "つらくない、macOS のウインドウタイリング。"))
+                 .font(.system(size: 14))
+                 .foregroundStyle(.secondary)
+                 .padding(.top, 6)
+ 
+             VStack(alignment: .leading, spacing: 16) {
+-                Feature(icon: "keyboard", title: "Keyboard tiling", detail: "Halves, quarters and thirds, with the same shortcuts as Rectangle.")
+-                Feature(icon: "square.grid.2x2", title: "Tile everything", detail: "One key spreads every window on the desktop into a tidy grid.")
+-                Feature(icon: "curlybraces", title: "One file to make it yours", detail: "Shortcuts, custom positions and tiling rules live in a single JSON file.")
++                Feature(icon: "keyboard", title: L("Keyboard tiling", ja: "キーボードでタイリング"),
++                        detail: L("Halves, quarters and thirds, with the same shortcuts as Rectangle.", ja: "2 分割・4 分割・3 分割。ショートカットは Rectangle と同じです。"))
++                Feature(icon: "square.grid.2x2", title: L("Tile everything", ja: "すべてをタイル表示"),
++                        detail: L("One key spreads every window on the desktop into a tidy grid.", ja: "キー 1 つで、デスクトップ上のすべてのウインドウをきれいなグリッドに並べます。"))
++                Feature(icon: "curlybraces", title: L("One file to make it yours", ja: "1 つのファイルで自分好みに"),
++                        detail: L("Shortcuts, custom positions and tiling rules live in a single JSON file.", ja: "ショートカット、カスタム位置、タイリングのルールは 1 つの JSON ファイルにまとまっています。"))
+             }
+             .padding(.top, 34)
+             .frame(maxWidth: 420, alignment: .leading)
+@@ -163,22 +166,23 @@ private struct PermissionStep: View {
+     @ObservedObject var model: WelcomeModel
+     var body: some View {
+         VStack(alignment: .leading, spacing: 0) {
+-            StepHeader(title: "Let Paneful move windows",
+-                       subtitle: "macOS asks you to approve any app that arranges other apps’ windows. Paneful only reads and sets window positions and sizes. It never goes online and collects nothing.")
++            StepHeader(title: L("Let Paneful move windows", ja: "Paneful にウインドウの移動を許可"),
++                       subtitle: L("macOS asks you to approve any app that arranges other apps’ windows. Paneful only reads and sets window positions and sizes. It never goes online and collects nothing.",
++                                   ja: "他のアプリのウインドウを並べ替えるアプリは、macOS による許可が必要です。Paneful はウインドウの位置とサイズを読み取って設定するだけで、ネットワークには接続せず、何も収集しません。"))
+ 
+             HStack(spacing: 12) {
+                 Image(systemName: model.trusted ? "checkmark.circle.fill" : "hand.raised.circle.fill")
+                     .font(.system(size: 26))
+                     .foregroundStyle(model.trusted ? Color.green : Color.orange)
+                 VStack(alignment: .leading, spacing: 2) {
+-                    Text(model.trusted ? "Permission granted" : "Waiting for permission")
++                    Text(model.trusted ? L("Permission granted", ja: "許可されました") : L("Waiting for permission", ja: "許可を待っています"))
+                         .font(.system(size: 14, weight: .semibold))
+-                    Text(model.trusted ? "You’re all set. Continue when ready." : "Turns green once you switch it on.")
++                    Text(model.trusted ? L("You’re all set. Continue when ready.", ja: "準備完了です。「続ける」を押してください。") : L("Turns green once you switch it on.", ja: "オンにすると緑色に変わります。"))
+                         .font(.system(size: 12.5)).foregroundStyle(.secondary)
+                 }
+                 Spacer()
+                 if !model.trusted {
+-                    Button("Open System Settings") { AX.promptForTrust(); AX.openSettings() }
++                    Button(L("Open System Settings", ja: "システム設定を開く")) { AX.promptForTrust(); AX.openSettings() }
+                         .buttonStyle(PrimaryButton())
+                 }
+             }
+@@ -187,14 +191,15 @@ private struct PermissionStep: View {
+             .padding(.top, 26)
+ 
+             VStack(alignment: .leading, spacing: 10) {
+-                NumberedLine(n: 1, text: "Click Open System Settings. It opens Privacy & Security → Accessibility.")
+-                NumberedLine(n: 2, text: "Find Paneful in the list and switch it on.")
+-                NumberedLine(n: 3, text: "Come back here and continue.")
++                NumberedLine(n: 1, text: L("Click Open System Settings. It opens Privacy & Security → Accessibility.", ja: "「システム設定を開く」をクリックすると、「プライバシーとセキュリティ」→「アクセシビリティ」が開きます。"))
++                NumberedLine(n: 2, text: L("Find Paneful in the list and switch it on.", ja: "リストから Paneful を見つけて、オンにします。"))
++                NumberedLine(n: 3, text: L("Come back here and continue.", ja: "ここに戻って「続ける」を押します。"))
+             }
+             .padding(.top, 24)
+ 
+             Spacer(minLength: 0)
+-            Label("Switched on but still waiting? That entry belongs to an older build. Select Paneful, click “−” to remove it, then switch it on again. If you build from source, run scripts/setup-signing.sh once and this stops happening.", systemImage: "info.circle")
++            Label(L("Switched on but still waiting? That entry belongs to an older build. Select Paneful, click “−” to remove it, then switch it on again. If you build from source, run scripts/setup-signing.sh once and this stops happening.",
++                    ja: "オンにしたのにまだ待機中のままですか?その項目は古いビルドのものです。Paneful を選択して「−」で削除し、もう一度追加してオンにしてください。ソースからビルドしている場合は、scripts/setup-signing.sh を一度実行すると解消します。"), systemImage: "info.circle")
+                 .font(.system(size: 11.5))
+                 .foregroundStyle(.secondary)
+                 .fixedSize(horizontal: false, vertical: true)
+@@ -226,24 +231,25 @@ private struct ShortcutsStep: View {
+ 
+     private func pretty(_ a: Action) -> String {
+         let s = ConfigStore.shared.config.shortcuts[a.rawValue] ?? a.defaultShortcut
+-        return KeyCombo.parse(s)?.pretty ?? "not set"
++        return KeyCombo.parse(s)?.pretty ?? L("not set", ja: "未設定")
+     }
+ 
+     private var cards: [Card] {
+         [
+-            Card(title: "Left / right half", units: Action.leftHalf.glyphUnits, keys: [pretty(.leftHalf), pretty(.rightHalf)]),
+-            Card(title: "Maximize", units: Action.maximize.glyphUnits, keys: [pretty(.maximize)]),
+-            Card(title: "Tile everything", units: Action.tileAll.glyphUnits, keys: [pretty(.tileAll)]),
+-            Card(title: "Corners", units: Action.topLeft.glyphUnits, keys: [pretty(.topLeft), pretty(.topRight), pretty(.bottomLeft), pretty(.bottomRight)]),
+-            Card(title: "Thirds", units: Action.centerThird.glyphUnits, keys: [pretty(.firstThird), pretty(.centerThird), pretty(.lastThird)]),
+-            Card(title: "Restore", units: Action.restore.glyphUnits, keys: [pretty(.restore)]),
++            Card(title: L("Left / right half", ja: "左半分 / 右半分"), units: Action.leftHalf.glyphUnits, keys: [pretty(.leftHalf), pretty(.rightHalf)]),
++            Card(title: L("Maximize", ja: "最大化"), units: Action.maximize.glyphUnits, keys: [pretty(.maximize)]),
++            Card(title: L("Tile everything", ja: "すべてをタイル表示"), units: Action.tileAll.glyphUnits, keys: [pretty(.tileAll)]),
++            Card(title: L("Corners", ja: "四隅"), units: Action.topLeft.glyphUnits, keys: [pretty(.topLeft), pretty(.topRight), pretty(.bottomLeft), pretty(.bottomRight)]),
++            Card(title: L("Thirds", ja: "3 分割"), units: Action.centerThird.glyphUnits, keys: [pretty(.firstThird), pretty(.centerThird), pretty(.lastThird)]),
++            Card(title: L("Restore", ja: "元に戻す"), units: Action.restore.glyphUnits, keys: [pretty(.restore)]),
+         ]
+     }
+ 
+     var body: some View {
+         VStack(alignment: .leading, spacing: 0) {
+-            StepHeader(title: "The only keys you need",
+-                       subtitle: "Click the window you want to move, then press a shortcut. Every action is also in the menu bar icon.")
++            StepHeader(title: L("The only keys you need", ja: "覚えるキーはこれだけ"),
++                       subtitle: L("Click the window you want to move, then press a shortcut. Every action is also in the menu bar icon.",
++                                   ja: "動かしたいウインドウをクリックして、ショートカットを押します。すべての操作はメニューバーのアイコンからも実行できます。"))
+             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 12) {
+                 ForEach(cards) { c in
+                     VStack(alignment: .leading, spacing: 10) {
+@@ -258,7 +264,7 @@ private struct ShortcutsStep: View {
+             }
+             .padding(.top, 22)
+             Spacer(minLength: 0)
+-            Label("Press \(pretty(.leftHalf)) again to cycle the width: 1/2 → 2/3 → 1/3.", systemImage: "lightbulb")
++            Label(L("Press \(pretty(.leftHalf)) again to cycle the width: 1/2 → 2/3 → 1/3.", ja: "\(pretty(.leftHalf)) をもう一度押すと、幅が 1/2 → 2/3 → 1/3 と切り替わります。"), systemImage: "lightbulb")
+                 .font(.system(size: 12))
+                 .foregroundStyle(.secondary)
+                 .padding(.bottom, 20)
+@@ -298,8 +304,9 @@ private struct CustomizeStep: View {
+     @ObservedObject var model: WelcomeModel
+     var body: some View {
+         VStack(alignment: .leading, spacing: 0) {
+-            StepHeader(title: "Make it yours",
+-                       subtitle: "Every setting lives in one JSON file. Save it and the change applies right away. No restart.")
++            StepHeader(title: L("Make it yours", ja: "自分好みにカスタマイズ"),
++                       subtitle: L("Every setting lives in one JSON file. Save it and the change applies right away. No restart.",
++                                   ja: "設定はすべて 1 つの JSON ファイルにあります。保存すればすぐに反映され、再起動は不要です。"))
+ 
+             HStack(alignment: .top, spacing: 18) {
+                 VStack(alignment: .leading, spacing: 0) {
+@@ -323,15 +330,15 @@ private struct CustomizeStep: View {
+                 .frame(width: 336)
+ 
+                 VStack(alignment: .leading, spacing: 13) {
+-                    Explain(key: "shortcuts", text: "Rebind any action")
+-                    Explain(key: "custom", text: "Positions as screen fractions")
+-                    Explain(key: "tile", text: "Windows per row when tiling")
+-                    Explain(key: "gap", text: "Space between windows")
++                    Explain(key: "shortcuts", text: L("Rebind any action", ja: "操作のショートカットを変更"))
++                    Explain(key: "custom", text: L("Positions as screen fractions", ja: "画面に対する割合で位置を指定"))
++                    Explain(key: "tile", text: L("Windows per row when tiling", ja: "タイル表示での 1 行あたりの数"))
++                    Explain(key: "gap", text: L("Space between windows", ja: "ウインドウ同士の間隔"))
+ 
+                     VStack(alignment: .leading, spacing: 8) {
+-                        Button("Open Config File") { NSWorkspace.shared.open(ConfigStore.url) }
++                        Button(L("Open Config File", ja: "設定ファイルを開く")) { NSWorkspace.shared.open(ConfigStore.url) }
+                             .buttonStyle(SecondaryButton())
+-                        Button("More Examples") { NSWorkspace.shared.open(URL(string: repoURL + "/tree/main/examples")!) }
++                        Button(L("More Examples", ja: "その他の設定例")) { NSWorkspace.shared.open(URL(string: repoURL + "/tree/main/examples")!) }
+                             .buttonStyle(SecondaryButton())
+                     }
+                     .padding(.top, 4)
+@@ -342,12 +349,13 @@ private struct CustomizeStep: View {
+             Spacer(minLength: 0)
+             HStack(alignment: .center, spacing: 12) {
+                 Image(systemName: "sparkles").foregroundStyle(Color.accentColor)
+-                Text("Want more? Paneful is about 2,100 lines of Swift with no dependencies. Fork it, hand the repo to your AI coding agent, and say what you want.")
++                Text(L("Want more? Paneful is about 2,100 lines of Swift with no dependencies. Fork it, hand the repo to your AI coding agent, and say what you want.",
++                       ja: "もっと欲しい機能がありますか?Paneful は依存関係のない約 2,100 行の Swift です。フォークして、AI コーディングエージェントにリポジトリを渡し、やりたいことを伝えてください。"))
+                     .font(.system(size: 12))
+                     .foregroundStyle(.secondary)
+                     .fixedSize(horizontal: false, vertical: true)
+                 Spacer(minLength: 8)
+-                Toggle("Launch at login", isOn: Binding(get: { model.launchAtLogin }, set: { model.setLaunchAtLogin($0) }))
++                Toggle(L("Launch at login", ja: "ログイン時に起動"), isOn: Binding(get: { model.launchAtLogin }, set: { model.setLaunchAtLogin($0) }))
+                     .toggleStyle(.switch)
+                     .controlSize(.small)
+                     .font(.system(size: 12))

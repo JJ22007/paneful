@@ -1,0 +1,137 @@
+diff --git a/AGENTS.md b/AGENTS.md
+index 2ec9a0c..c5be957 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -23,7 +23,7 @@ The self-test (`Paneful --selftest`) covers geometry, key parsing, config decodi
+ 
+ `Paneful --check <file>` validates a config file. Every file in `examples/` must pass it.
+ 
+-The installed app also answers `paneful list | displays | tile | run | place | fullscreen | save | restore | actions`, each with `--json` (see `Sources/CLI.swift`). With the app running and the permission granted, `paneful list` is a quick way to check real window positions after a change. Moves report the frame read back from macOS, so you can check a layout change against real windows; run `paneful save` first and `paneful restore` afterwards to leave the user's desktop as you found it.
++The installed app also answers `paneful list | displays | tile | run | place | swap | fullscreen | save | restore | actions`, each with `--json` (see `Sources/CLI.swift`). With the app running and the permission granted, `paneful list` is a quick way to check real window positions after a change. Moves report the frame read back from macOS, so you can check a layout change against real windows; run `paneful save` first and `paneful restore` afterwards to leave the user's desktop as you found it.
+ 
+ ## What you cannot verify yourself
+ 
+diff --git a/README.md b/README.md
+index eb9ddc4..6e18424 100644
+--- a/README.md
++++ b/README.md
+@@ -160,6 +160,7 @@ ln -s ~/Applications/Paneful.app/Contents/MacOS/Paneful /usr/local/bin/paneful
+ | `paneful tile` | Tile all windows into a grid |
+ | `paneful place 0 0 0.6 1 --app Safari` | Put a window anywhere. Numbers are `x y w h` from 0 to 1 |
+ | `paneful run leftHalf --title notes --display 2` | Run any built-in action on a specific window, optionally on another display |
++| `paneful swap --app Safari --with-app Notes` | Swap the positions and sizes of two windows. With no options, swaps the focused window with the next one behind it |
+ | `paneful fullscreen off --app Keynote` | Enter or leave native fullscreen |
+ | `paneful save` / `paneful restore` | Remember where every window is, and put them all back |
+ | `paneful actions` | List the action names |
+diff --git a/README.zh-CN.md b/README.zh-CN.md
+index ba3a98a..31ee222 100644
+--- a/README.zh-CN.md
++++ b/README.zh-CN.md
+@@ -138,6 +138,7 @@ ln -s ~/Applications/Paneful.app/Contents/MacOS/Paneful /usr/local/bin/paneful
+ | `paneful tile` | 把所有窗口排成网格 |
+ | `paneful place 0 0 0.6 1 --app Safari` | 把窗口放到任意位置,四个数字是 `x y w h`,范围 0~1 |
+ | `paneful run leftHalf --title notes --display 2` | 对指定窗口执行内置动作,可以指定放到哪块显示器 |
++| `paneful swap --app Safari --with-app Notes` | 交换两个窗口的位置和大小;不带参数时,交换当前窗口和它后面的下一个窗口 |
+ | `paneful fullscreen off --app Keynote` | 进入或退出系统全屏 |
+ | `paneful save` / `paneful restore` | 记下所有窗口的位置,之后一次全部还原 |
+ | `paneful actions` | 列出动作名 |
+diff --git a/Sources/CLI.swift b/Sources/CLI.swift
+index 28732fa..406f862 100644
+--- a/Sources/CLI.swift
++++ b/Sources/CLI.swift
+@@ -15,7 +15,7 @@ import ApplicationServices
+ import Security
+ 
+ enum CLI {
+-    static let commands: Set<String> = ["list", "displays", "tile", "run", "place", "fullscreen", "save", "restore", "actions", "help", "--help", "-h"]
++    static let commands: Set<String> = ["list", "displays", "tile", "run", "place", "swap", "fullscreen", "save", "restore", "actions", "help", "--help", "-h"]
+     static let channel = Notification.Name("io.github.paneful.command")
+     static let tokenURL = FileManager.default.homeDirectoryForCurrentUser
+         .appendingPathComponent("Library/Application Support/Paneful/cli-token")
+@@ -32,8 +32,10 @@ enum CLI {
+                                                    run a built-in action
+       paneful place <x> <y> <w> <h> [--app A] [--title T] [--display N]
+                                                    put a window at a position
++      paneful swap [--app A] [--title T] [--with-app B] [--with-title U]
++                                                   swap the positions and sizes of two windows
+       paneful fullscreen <on|off> --app A          enter or leave native fullscreen
+-      paneful save [file]                          save where every window is
++      paneful save [file]                         save where every window is
+       paneful restore [file]                       put every saved window back
+       paneful actions                              list the action names
+ 
+@@ -42,6 +44,9 @@ enum CLI {
+     --app (name or bundle id) and --title match by case-insensitive substring. Without them the
+     command applies to the focused window. --display moves the window to that display first.
+ 
++    swap takes the first window from --app/--title (the focused window if omitted) and the second
++    from --with-app/--with-title (the next window behind the first if omitted).
++
+     After moving windows, Paneful reads their frames back and reports where they really are.
+     A line marked "differs" means the app refused the requested size (usually a minimum size).
+     Add --json to any command for machine-readable output.
+@@ -169,6 +174,7 @@ enum CLI {
+             return v
+         }
+         let app = option("--app"), title = option("--title"), displayArg = option("--display")
++        let withApp = option("--with-app"), withTitle = option("--with-title")
+         var display: NSScreen?
+         if let d = displayArg {
+             let screens = orderedScreens()
+@@ -215,6 +221,22 @@ enum CLI {
+             let layout = CustomLayout(name: "cli", key: nil, x: n[0], y: n[1], w: n[2], h: n[3])
+             return moveAndReport(w, json: json) { WindowManager.shared.perform(layout, on: w, screen: display) }
+ 
++        case "swap":
++            guard let a = target(app: app, title: title) else { return fail(notFound(app, title)) }
++            let b: AXUIElement?
++            if withApp == nil && withTitle == nil {
++                b = AX.windowsFrontToBack().first { !CFEqual($0.window, a) }?.window
++            } else {
++                b = target(app: withApp, title: withTitle, excluding: a)
++            }
++            guard let b else {
++                return fail(withApp == nil && withTitle == nil ? "there is no other window to swap with" : notFound(withApp, withTitle))
++            }
++            guard let fa = AX.frame(of: a), let fb = AX.frame(of: b) else { return fail("could not read the window positions") }
++            WindowManager.shared.move(a, to: fb)
++            WindowManager.shared.move(b, to: fa)
++            return report([(a, fb), (b, fa)], verb: "swapped", json: json)
++
+         case "fullscreen":
+             guard let mode = rest.first, ["on", "off"].contains(mode), let name = app else {
+                 return fail("usage: paneful fullscreen <on|off> --app NAME")
+@@ -363,9 +385,10 @@ enum CLI {
+         return String(decoding: data, as: UTF8.self)
+     }
+ 
+-    private static func target(app: String?, title: String?) -> AXUIElement? {
++    private static func target(app: String?, title: String?, excluding: AXUIElement? = nil) -> AXUIElement? {
+         if app == nil && title == nil { return AX.focusedWindow() }
+         return AX.windowsFrontToBack().first { w in
++            if let e = excluding, CFEqual(w.window, e) { return false }
+             let (name, t, bundle) = AX.describe(w.window)
+             return (app.map { name.localizedCaseInsensitiveContains($0) || bundle.localizedCaseInsensitiveContains($0) } ?? true)
+                 && (title.map { t.localizedCaseInsensitiveContains($0) } ?? true)
+diff --git a/Sources/main.swift b/Sources/main.swift
+index 78cbe86..f2640d4 100644
+--- a/Sources/main.swift
++++ b/Sources/main.swift
+@@ -3,7 +3,7 @@
+ //   Paneful --selftest        test geometry, shortcuts and config handling
+ //   Paneful --check <file>    validate a config file
+ //   Paneful --snapshot <dir>  render each welcome step to a PNG
+-//   Paneful list | displays | tile | run | place | fullscreen | save | restore | actions   command line interface, see CLI.swift
++//   Paneful list | displays | tile | run | place | swap | fullscreen | save | restore | actions   command line interface, see CLI.swift
+ 
+ import AppKit
+ import SwiftUI
+@@ -63,6 +63,8 @@ func selfTest() -> Int32 {
+                              current: [("a", "Draft"), ("c", "Mail"), ("a", "Notes")])
+     expect("restore: match by app and title, then by app, else missing", m == [2, 0, nil, 1], "\(m)")
+ 
++    expect("cli: swap is a known command", CLI.commands.contains("swap") && CLI.usage.contains("paneful swap"))
++
+     expect("tile rows for 2/3/4/5/6", [2, 3, 4, 5, 6].map(defaultTileRows) == [[2], [3], [2, 2], [3, 2], [3, 3]])
+     expect("tile rows for 7/8/10", [7, 8, 10].map(defaultTileRows) == [[3, 2, 2], [3, 3, 2], [4, 3, 3]])
+     check("tile 4, bottom right", tileLayout(rows: [2, 2], visible: v)[3], CGRect(x: 756, y: 483, width: 756, height: 450))

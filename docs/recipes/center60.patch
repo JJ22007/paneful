@@ -1,0 +1,111 @@
+diff --git a/README.md b/README.md
+index eb9ddc4..9cedfcc 100644
+--- a/README.md
++++ b/README.md
+@@ -79,10 +79,11 @@ The script creates a self-signed certificate in your login keychain, used only t
+ | `⌃⌥↩` | Maximize | `maximize` |
+ | `⌃⌥M` | Almost maximize (90%) | `almostMaximize` |
+ | `⌃⌥C` | Center | `center` |
++| `⌃⌥V` | Center at 60% width; press again for 80%, then 100% | `centerCycle` |
+ | `⌃⌥⌫` | Restore the previous frame | `restore` |
+ | `⌃⌥⌘→` `⌃⌥⌘←` | Walk right, walk left: one half at a time, across every display | `nextDisplay` `prevDisplay` |
+ 
+-Press left half or right half again to cycle its width: 1/2 → 2/3 → 1/3.
++Press left half or right half again to cycle its width: 1/2 → 2/3 → 1/3. The centered window cycles 60% → 80% → 100% of the screen width.
+ 
+ **Walking across displays.** `⌃⌥⌘→` moves a window one half to the right each time: left half, right half, then the left half of the next display, then its right half, and so on. `⌃⌥⌘←` walks back. Displays are taken left to right and wrap around, so it also works when one sits above the other. If you would rather do this with the plain half keys and give up width cycling, set `crossDisplays` to `true`.
+ 
+diff --git a/README.zh-CN.md b/README.zh-CN.md
+index ba3a98a..c205670 100644
+--- a/README.zh-CN.md
++++ b/README.zh-CN.md
+@@ -76,10 +76,11 @@ bash scripts/setup-signing.sh
+ | `⌃⌥↩` | 最大化 | `maximize` |
+ | `⌃⌥M` | 接近最大化(90%) | `almostMaximize` |
+ | `⌃⌥C` | 居中 | `center` |
++| `⌃⌥V` | 居中 60% 宽;连按依次切到 80%、100% | `centerCycle` |
+ | `⌃⌥⌫` | 还原到之前的位置 | `restore` |
+ | `⌃⌥⌘→` `⌃⌥⌘←` | 向右走 / 向左走:每次半屏,可跨所有显示器 | `nextDisplay` `prevDisplay` |
+ 
+-左半屏或右半屏连按,宽度在 1/2 → 2/3 → 1/3 之间切换。
++左半屏或右半屏连按,宽度在 1/2 → 2/3 → 1/3 之间切换。居中窗口连按,宽度在屏幕的 60% → 80% → 100% 之间切换。
+ 
+ **跨屏行走。** `⌃⌥⌘→` 每按一次把窗口向右挪半屏:左半屏、右半屏,然后是下一块显示器的左半屏、右半屏,依此类推。`⌃⌥⌘←` 反向走回来。显示器按从左到右排序并首尾相接,所以上下摆放的两块屏也一样能用。如果更想用普通的半屏键做这件事并放弃宽度切换,把 `crossDisplays` 设为 `true`。
+ 
+diff --git a/Sources/Actions.swift b/Sources/Actions.swift
+index 577442d..29edde9 100644
+--- a/Sources/Actions.swift
++++ b/Sources/Actions.swift
+@@ -8,7 +8,7 @@ enum Action: String, CaseIterable {
+     case leftHalf, rightHalf, topHalf, bottomHalf
+     case topLeft, topRight, bottomLeft, bottomRight
+     case firstThird, centerThird, lastThird, firstTwoThirds, lastTwoThirds
+-    case maximize, almostMaximize, center, restore
++    case maximize, almostMaximize, center, centerCycle, restore
+     case nextDisplay, prevDisplay
+ 
+     var title: String {
+@@ -30,6 +30,7 @@ enum Action: String, CaseIterable {
+         case .maximize: return "Maximize"
+         case .almostMaximize: return "Almost Maximize"
+         case .center: return "Center"
++        case .centerCycle: return "Center 60% / 80% / 100%"
+         case .restore: return "Restore"
+         case .nextDisplay: return "Walk Right"
+         case .prevDisplay: return "Walk Left"
+@@ -56,6 +57,7 @@ enum Action: String, CaseIterable {
+         case .maximize: return "ctrl+alt+return"
+         case .almostMaximize: return "ctrl+alt+m"
+         case .center: return "ctrl+alt+c"
++        case .centerCycle: return "ctrl+alt+v"
+         case .restore: return "ctrl+alt+delete"
+         case .nextDisplay: return "ctrl+alt+cmd+right"
+         case .prevDisplay: return "ctrl+alt+cmd+left"
+@@ -68,7 +70,7 @@ enum Action: String, CaseIterable {
+         [.leftHalf, .rightHalf, .topHalf, .bottomHalf],
+         [.topLeft, .topRight, .bottomLeft, .bottomRight],
+         [.firstThird, .centerThird, .lastThird, .firstTwoThirds, .lastTwoThirds],
+-        [.maximize, .almostMaximize, .center, .restore],
++        [.maximize, .almostMaximize, .center, .centerCycle, .restore],
+         [.nextDisplay, .prevDisplay],
+     ]
+ 
+diff --git a/Sources/Geometry.swift b/Sources/Geometry.swift
+index 73e6dca..424ca33 100644
+--- a/Sources/Geometry.swift
++++ b/Sources/Geometry.swift
+@@ -7,6 +7,9 @@ import AppKit
+ /// Widths cycled through when left/right half is pressed repeatedly: 1/2 → 2/3 → 1/3
+ let halfCycle: [CGFloat] = [1.0 / 2, 2.0 / 3, 1.0 / 3]
+ 
++/// Widths cycled through when the centered-width key is pressed repeatedly: 60% → 80% → 100%
++let centerCycle: [CGFloat] = [0.6, 0.8, 1.0]
++
+ /// The unit rect of a built-in action. nil means the action is not a fixed position (restore, center, displays…).
+ func unitRect(for a: Action, cycle: Int = 0) -> CGRect? {
+     switch a {
+@@ -27,6 +30,9 @@ func unitRect(for a: Action, cycle: Int = 0) -> CGRect? {
+     case .lastTwoThirds: return CGRect(x: 1.0 / 3, y: 0, width: 2.0 / 3, height: 1)
+     case .maximize: return CGRect(x: 0, y: 0, width: 1, height: 1)
+     case .almostMaximize: return CGRect(x: 0.05, y: 0.05, width: 0.9, height: 0.9)
++    case .centerCycle:
++        let w = centerCycle[cycle % centerCycle.count]
++        return CGRect(x: (1 - w) / 2, y: 0, width: w, height: 1)
+     case .center, .restore, .nextDisplay, .prevDisplay, .tileAll: return nil
+     }
+ }
+diff --git a/Sources/main.swift b/Sources/main.swift
+index 78cbe86..ee84d97 100644
+--- a/Sources/main.swift
++++ b/Sources/main.swift
+@@ -31,6 +31,10 @@ func selfTest() -> Int32 {
+     check("center third", targetRect(.centerThird, visible: v, current: c), CGRect(x: 504, y: 33, width: 504, height: 900))
+     check("maximize", targetRect(.maximize, visible: v, current: c), v)
+     check("center", targetRect(.center, visible: v, current: c), CGRect(x: 356, y: 183, width: 800, height: 600))
++    check("center cycle: 60%", targetRect(.centerCycle, visible: v, current: c), CGRect(x: 302, y: 33, width: 907, height: 900))
++    check("center cycle, 2nd press → 80%", targetRect(.centerCycle, visible: v, current: c, cycle: 1), CGRect(x: 151, y: 33, width: 1210, height: 900))
++    check("center cycle, 3rd press → 100%", targetRect(.centerCycle, visible: v, current: c, cycle: 2), v)
++    check("center cycle, 4th press → back to 60%", targetRect(.centerCycle, visible: v, current: c, cycle: 3), CGRect(x: 302, y: 33, width: 907, height: 900))
+     check("left half, gap 12", targetRect(.leftHalf, visible: v, current: c, gap: 12), CGRect(x: 12, y: 45, width: 738, height: 876))
+     check("right half, gap 12", targetRect(.rightHalf, visible: v, current: c, gap: 12), CGRect(x: 762, y: 45, width: 738, height: 876))
+     check("custom position", screenRect(unit: CGRect(x: 0.62, y: 0, width: 0.38, height: 1), visible: v), CGRect(x: 937, y: 33, width: 575, height: 900))
