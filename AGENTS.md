@@ -27,7 +27,7 @@ The self-test (`Paneful --selftest`) covers geometry, key parsing, config decodi
 
 To look at the welcome screens in another language without changing the system: `build/Paneful.app/Contents/MacOS/Paneful --snapshot /tmp/shots -AppleLanguages "(ja)"`.
 
-The installed app also answers `paneful list | displays | tile | run | place | fullscreen | save | restore | actions`, each with `--json` (see `Sources/CLI.swift`). With the app running and the permission granted, `paneful list` is a quick way to check real window positions after a change. Moves report the frame read back from macOS, so you can check a layout change against real windows; run `paneful save` first and `paneful restore` afterwards to leave the user's desktop as you found it.
+The installed app also answers `paneful list | displays | tile | run | place | fullscreen | apply | save | restore | mcp | actions`, each with `--json` (see `Sources/CLI.swift`). With the app running and the permission granted, `paneful list` is a quick way to check real window positions after a change. Moves report the frame read back from macOS, so you can check a layout change against real windows; run `paneful save` first and `paneful restore` afterwards to leave the user's desktop as you found it.
 
 ## What you cannot verify yourself
 
@@ -53,7 +53,8 @@ All sources are in `Sources/`.
 | `Glyph.swift` | The small layout icons used in the menu and the welcome screens |
 | `App.swift` | `AppDelegate`: status item, menu, applying config to hotkeys |
 | `Welcome.swift` | SwiftUI onboarding: intro, permission, shortcuts, customize |
-| `CLI.swift` | The `paneful` command line client and the in-app server it talks to (distributed notification in with a per-launch token, reply file out), read-back reporting, save and restore |
+| `CLI.swift` | The `paneful` command line client and the in-app server it talks to (distributed notification in with a per-launch token, reply file out), read-back reporting, `apply`, save and restore |
+| `MCP.swift` | `paneful mcp`: an MCP server over stdio whose tools forward to the same CLI commands. Tool results are errors unless the read-back verified them |
 | `MenuBarIcon.swift` | The menu bar icon (Lucide `layout-panel-left`), drawn in code as a template image |
 | `main.swift` | Entry point, `--selftest`, `--check`, `--snapshot`, and the `repoURL` constant |
 

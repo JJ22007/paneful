@@ -139,7 +139,9 @@ ln -s ~/Applications/Paneful.app/Contents/MacOS/Paneful /usr/local/bin/paneful
 | `paneful place 0 0 0.6 1 --app Safari` | 把窗口放到任意位置,四个数字是 `x y w h`,范围 0~1 |
 | `paneful run leftHalf --title notes --display 2` | 对指定窗口执行内置动作,可以指定放到哪块显示器 |
 | `paneful fullscreen off --app Keynote` | 进入或退出系统全屏 |
+| `paneful apply layout.json` | 按 App 或标题一次摆好多个窗口(格式见下) |
 | `paneful save` / `paneful restore` | 记下所有窗口的位置,之后一次全部还原 |
+| `paneful mcp` | 同样的命令,以 MCP 服务器的形式提供给支持 MCP 的 agent 和工具 |
 | `paneful actions` | 列出动作名 |
 
 `--app` 匹配 App 名或 bundle id,`--title` 匹配窗口标题,都是不分大小写的子串匹配;都不写就作用于当前窗口。用 `&&` 串起来可以一次摆好整个布局。
@@ -148,7 +150,16 @@ ln -s ~/Applications/Paneful.app/Contents/MacOS/Paneful /usr/local/bin/paneful
 
 **能撤销。** `paneful save` 把所有窗口的位置写到 `~/.config/paneful/layout.json`(也可以指定文件),`paneful restore` 把它们放回去,并报告找不到的窗口。让 agent 动手前先 save,桌面就总能还原。
 
-**给程序用。** 任何命令加 `--json` 输出 JSON。`list --json` 包含 App、bundle id、标题、显示器、屏幕比例和以点为单位的位置;移动类命令还会带上要求的位置和 `matchesTarget`。出错时退出码为 1。
+**整套布局。** `paneful apply` 读一个文件(或用 `-` 从标准输入读),列出每个窗口和要放的位置。每一项取第一个还没用过的匹配窗口;`display` 可省略:
+
+```json
+[{"app": "Safari", "x": 0, "y": 0, "w": 0.6, "h": 1},
+ {"app": "Notes", "title": "todo", "x": 0.6, "y": 0, "w": 0.4, "h": 1, "display": 2}]
+```
+
+**给程序用。** 任何命令加 `--json` 输出 JSON。`list --json` 包含 App、bundle id、标题、显示器、屏幕比例和以点为单位的位置;移动类命令还会带上要求的位置、`matchesTarget`、被跳过的窗口 `skipped` 和总的 `verified`。退出码:0 完成且核实,3 完成但未核实(有窗口不符或被跳过),1 出错,2 Paneful 没在运行。
+
+**MCP。** `paneful mcp` 通过标准输入输出提供 `list_windows`、`list_displays`、`apply_layout`、`tile_all`、`save_layout`、`restore_layout`。每次调用走和命令行同一条通道、同一套回读,没核实的结果一律标为错误。在 MCP 客户端里把命令设为 `paneful`、参数设为 `mcp` 即可。
 
 给你的 agent 几行说明(写进 `CLAUDE.md`、系统提示词,或者直接粘贴),之后正常说话就行:
 
