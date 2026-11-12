@@ -1,0 +1,98 @@
+diff --git a/README.md b/README.md
+index eb9ddc4..8f1cc3f 100644
+--- a/README.md
++++ b/README.md
+@@ -38,7 +38,7 @@ What Paneful offers in exchange: the source is about 105 KB, a small fraction of
+ ## Features
+ 
+ - **Keyboard tiling.** Halves, quarters, thirds, two-thirds, maximize, center, restore, and move between displays. The defaults match [Rectangle](https://github.com/rxhanson/Rectangle), so your muscle memory still works.
+-- **Tile everything.** Press `⌃⌥A` and every window on the desktop spreads into a grid: two side by side, three in columns, four in quarters, five as three over two, six as 3×2. The rules are yours to change.
++- **Tile everything.** Press `⌃⌥A` and every window on the desktop spreads into a grid: two side by side, three in columns, four in quarters, five as three over two, six as 3×2. On the display with the focused window, that window instead takes the left half and the others stack on the right. Other displays use the grid, and `tile.rows` still shapes it.
+ - **Custom positions.** Describe any spot as fractions of the screen and bind it to a key.
+ - **Agent-ready.** A `paneful` command lets scripts and AI agents list, place and tile windows, so "put my editor on the left and stack the rest" just works.
+ - **One config file, hot reloaded.** Save the file and the change applies within a second or two. Mistakes show up in the menu instead of breaking the app.
+diff --git a/README.zh-CN.md b/README.zh-CN.md
+index ba3a98a..5eefd52 100644
+--- a/README.zh-CN.md
++++ b/README.zh-CN.md
+@@ -35,7 +35,7 @@ Paneful 拿来交换的是:源码大约 105 KB,只是上面这些工具的一小
+ ## 功能
+ 
+ - **键盘分屏**:半屏、四分之一、三分之一、三分之二、最大化、居中、还原、跨显示器。默认快捷键与 [Rectangle](https://github.com/rxhanson/Rectangle) 一致。
+-- **一键排列**:按 `⌃⌥A`,桌面上所有窗口自动铺开。2 个左右分,3 个三等分,4 个田字格,5 个上三下二,6 个 3×2。规则可以自己改。
++- **一键排列**:按 `⌃⌥A`,桌面上所有窗口自动铺开。2 个左右分,3 个三等分,4 个田字格,5 个上三下二,6 个 3×2。但在有焦点窗口的那块显示器上,焦点窗口占左半屏,其余窗口在右半屏纵向堆叠;其他显示器仍按网格排列,`tile.rows` 对它们照常生效。
+ - **自定义位置**:用屏幕比例描述任意位置,绑上快捷键。
+ - **可以交给 agent**:自带 `paneful` 命令行,脚本和 AI agent 可以列出、摆放、排列窗口。
+ - **一份配置,保存即生效**:改完保存,一两秒内自动应用。写错了会在菜单里提示,不会把 App 搞坏。
+diff --git a/Sources/Geometry.swift b/Sources/Geometry.swift
+index 73e6dca..4f1df88 100644
+--- a/Sources/Geometry.swift
++++ b/Sources/Geometry.swift
+@@ -67,6 +67,19 @@ func tileLayout(rows: [Int], visible v: CGRect, gap: CGFloat = 0) -> [CGRect] {
+     return out
+ }
+ 
++/// "Tile all" with a focused window: it takes the left half, the other n-1 windows stack in the right half.
++/// The first rect is for the focused window. One window alone fills the screen.
++func focusLeftLayout(count n: Int, visible v: CGRect, gap: CGFloat = 0) -> [CGRect] {
++    guard n > 0 else { return [] }
++    if n == 1 { return [screenRect(unit: CGRect(x: 0, y: 0, width: 1, height: 1), visible: v, gap: gap)] }
++    var out = [screenRect(unit: CGRect(x: 0, y: 0, width: 0.5, height: 1), visible: v, gap: gap)]
++    let h = 1.0 / CGFloat(n - 1)
++    for i in 0..<(n - 1) {
++        out.append(screenRect(unit: CGRect(x: 0.5, y: CGFloat(i) * h, width: 0.5, height: h), visible: v, gap: gap))
++    }
++    return out
++}
++
+ /// Move a window to another screen, keeping its relative position and size
+ func remap(_ c: CGRect, from a: CGRect, to b: CGRect) -> CGRect {
+     let w = min(c.width / a.width, 1) * b.width, h = min(c.height / a.height, 1) * b.height
+diff --git a/Sources/WindowManager.swift b/Sources/WindowManager.swift
+index 494733c..1129ad5 100644
+--- a/Sources/WindowManager.swift
++++ b/Sources/WindowManager.swift
+@@ -101,6 +101,7 @@ final class WindowManager {
+         let all = AX.windowsFrontToBack()
+         guard !all.isEmpty else { NSSound.beep(); return [] }
+         var placed: [(window: AXUIElement, target: CGRect)] = []
++        let focused = AX.focusedWindow()
+         var order: [NSScreen] = []
+         var byScreen: [NSScreen: [(window: AXUIElement, frame: CGRect)]] = [:]
+         for item in all {
+@@ -110,7 +111,18 @@ final class WindowManager {
+         }
+         for scr in order {
+             let visible = flip(scr.visibleFrame)
+-            let chosen = Array(byScreen[scr]!.prefix(max(1, config.tile.max)))
++            let limit = max(1, config.tile.max)
++            // On the display with the focused window: it takes the left half, the others stack on the right (top to bottom as they are now)
++            if let f = focused, var rest = Optional(byScreen[scr]!), let fi = rest.firstIndex(where: { CFEqual($0.window, f) }) {
++                let first = rest.remove(at: fi)
++                let chosen = [first] + rest.prefix(limit - 1).sorted { $0.frame.midY < $1.frame.midY }
++                for (item, target) in zip(chosen, focusLeftLayout(count: chosen.count, visible: visible, gap: gap)) {
++                    place(item.window, from: item.frame, to: target, within: nil, key: nil)
++                    placed.append((item.window, target))
++                }
++                continue
++            }
++            let chosen = Array(byScreen[scr]!.prefix(limit))
+             let rows = config.tile.rows(for: chosen.count)
+             // Assign cells by where windows already are (rows first, then columns) so they move as little as possible
+             let byY = chosen.sorted { $0.frame.midY < $1.frame.midY }
+diff --git a/Sources/main.swift b/Sources/main.swift
+index 78cbe86..7c83d32 100644
+--- a/Sources/main.swift
++++ b/Sources/main.swift
+@@ -68,6 +68,11 @@ func selfTest() -> Int32 {
+     check("tile 4, bottom right", tileLayout(rows: [2, 2], visible: v)[3], CGRect(x: 756, y: 483, width: 756, height: 450))
+     check("tile 5, third on top", tileLayout(rows: [3, 2], visible: v)[2], CGRect(x: 1008, y: 33, width: 504, height: 450))
+ 
++    let fl = focusLeftLayout(count: 4, visible: v)
++    check("focus left: focused window takes the left half", fl[0], CGRect(x: 0, y: 33, width: 756, height: 900))
++    check("focus left: last of three stacked on the right", fl[3], CGRect(x: 756, y: 633, width: 756, height: 300))
++    expect("focus left: one window fills the screen", focusLeftLayout(count: 1, visible: v) == [v])
++
+     let k = KeyCombo.parse("ctrl+alt+left")
+     expect("shortcut ctrl+alt+left", k?.code == 123 && k?.pretty == "⌃⌥←", k?.pretty ?? "nil")
+     expect("shortcut Cmd+Shift+F5", KeyCombo.parse("Cmd+Shift+F5")?.pretty == "⇧⌘F5")

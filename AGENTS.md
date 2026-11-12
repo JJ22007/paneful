@@ -23,6 +23,10 @@ The self-test (`Paneful --selftest`) covers geometry, key parsing, config decodi
 
 `Paneful --check <file>` validates a config file. Every file in `examples/` must pass it.
 
+`bash build.sh` already runs the self-test and checks every file in `examples/`, and stops with an error if either fails. When it prints `all tests passed` you don't need to run them again by hand.
+
+To look at the welcome screens in another language without changing the system: `build/Paneful.app/Contents/MacOS/Paneful --snapshot /tmp/shots -AppleLanguages "(ja)"`.
+
 The installed app also answers `paneful list | displays | tile | run | place | fullscreen | save | restore | actions`, each with `--json` (see `Sources/CLI.swift`). With the app running and the permission granted, `paneful list` is a quick way to check real window positions after a change. Moves report the frame read back from macOS, so you can check a layout change against real windows; run `paneful save` first and `paneful restore` afterwards to leave the user's desktop as you found it.
 
 ## What you cannot verify yourself
@@ -77,7 +81,10 @@ All sources are in `Sources/`.
 3. Document it in the README field table and add or update a file in `examples/`.
 
 **Change how "tile all" assigns windows**
-Edit `WindowManager.tileAll()`. The row shapes come from `TileConfig.rows(for:)` and `defaultTileRows(_:)`.
+Edit `WindowManager.tileAll()`. The row shapes come from `TileConfig.rows(for:)` and `defaultTileRows(_:)`. Many apps have a minimum window size, so thin cells overlap in practice even when the math is right. If the user can run it, ask them to try `paneful save && paneful tile` and check the lines marked `differs`, then `paneful restore`.
+
+**See what other agents did**
+[`docs/recipes/`](docs/recipes/README.md) has six one-sentence changes made by an agent, with their diffs and what happened on real windows.
 
 **Change the onboarding**
 Edit `Welcome.swift`, then run `bash build.sh snapshot` and look at the PNGs.

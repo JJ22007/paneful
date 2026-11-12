@@ -201,6 +201,8 @@ When the config isn't enough, change the code. The project is written to be easy
    - "Translate the interface to Japanese."
 4. Run `bash build.sh install` and try it.
 
+See [`docs/recipes/`](docs/recipes/README.md) for six of these done by Claude Code from a single sentence, with the full diffs and what happened on real windows, including the one that didn't quite work.
+
 Prefer to do it by hand? Each file has one job:
 
 | File | Job | Look here to… |

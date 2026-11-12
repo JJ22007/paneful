@@ -1,0 +1,31 @@
+diff --git a/Sources/DragSnap.swift b/Sources/DragSnap.swift
+index 1f98817..b14dfa7 100644
+--- a/Sources/DragSnap.swift
++++ b/Sources/DragSnap.swift
+@@ -65,6 +65,11 @@ final class DragSnapper {
+         if l { return .leftHalf }
+         if r { return .rightHalf }
+         if t { return .maximize }
++        if b {
++            // Bottom edge between the corners: thirds, by where along the edge you drop
++            let x = (p.x - f.minX) / f.width
++            return x < 1.0 / 3 ? .firstThird : x < 2.0 / 3 ? .centerThird : .lastThird
++        }
+         return nil
+     }
+ 
+diff --git a/Sources/main.swift b/Sources/main.swift
+index 78cbe86..8557b61 100644
+--- a/Sources/main.swift
++++ b/Sources/main.swift
+@@ -96,6 +96,10 @@ func selfTest() -> Int32 {
+     expect("drag zones: corners / middle", DragSnapper.zone(at: CGPoint(x: 0, y: 981), in: f) == .topLeft
+         && DragSnapper.zone(at: CGPoint(x: 1511, y: 20), in: f) == .bottomRight
+         && DragSnapper.zone(at: CGPoint(x: 700, y: 500), in: f) == nil)
++    expect("drag zones: bottom edge thirds", DragSnapper.zone(at: CGPoint(x: 300, y: 0), in: f) == .firstThird
++        && DragSnapper.zone(at: CGPoint(x: 756, y: 0), in: f) == .centerThird
++        && DragSnapper.zone(at: CGPoint(x: 1200, y: 0), in: f) == .lastThird
++        && DragSnapper.zone(at: CGPoint(x: 50, y: 0), in: f) == .bottomLeft)
+ 
+     print(fails == 0 ? "all tests passed" : "\(fails) test(s) failed")
+     return fails == 0 ? 0 : 1

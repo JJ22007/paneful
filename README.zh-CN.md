@@ -175,6 +175,8 @@ Check the output: if a line says "differs", tell me. Act right away, then reply 
    - 「把界面翻译成中文」
 4. 运行 `bash build.sh install` 看效果。
 
+[`docs/recipes/`](docs/recipes/README.md) 里有 6 个这样的例子:每个都是一句话交给 Claude Code 改出来的,附完整 diff 和真实窗口上的结果,包括一个没完全做好的。
+
 各源文件的分工见[英文 README](README.md#build-your-own) 里的表格。
 
 ## 已知限制
