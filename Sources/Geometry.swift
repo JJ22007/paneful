@@ -97,6 +97,15 @@ func neighborDisplay(of i: Int, in frames: [CGRect], left: Bool) -> Int? {
     return order[(at + (left ? order.count - 1 : 1)) % order.count]
 }
 
+/// Which windows Restore puts back after tile all. `placed` is where tile all left each window,
+/// `now` where each one is (nil if it is gone). If the focused window still sits where tile all
+/// put it, every window that also still does goes back together; otherwise only the focused one.
+func tileUndoGroup(focused: Int, placed: [CGRect], now: [CGRect?], tol: CGFloat = 30) -> [Int] {
+    func still(_ i: Int) -> Bool { now[i].map { nearlyEqual($0, placed[i], tol: tol) } == true }
+    guard placed.indices.contains(focused), still(focused) else { return [focused] }
+    return placed.indices.filter(still)
+}
+
 func nearlyEqual(_ a: CGRect, _ b: CGRect, tol: CGFloat = 3) -> Bool {
     abs(a.minX - b.minX) <= tol && abs(a.minY - b.minY) <= tol && abs(a.width - b.width) <= tol && abs(a.height - b.height) <= tol
 }

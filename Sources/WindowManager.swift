@@ -14,6 +14,8 @@ final class WindowManager {
     private var lastKey: String?
     private var lastWindow: AXUIElement?
     private var cycle = 0
+    /// The windows the last tile all moved, so one Restore can put all of them back
+    private var lastTiled: [(window: AXUIElement, frame: CGRect)] = []
     /// Where the last move asked a window to go, so the CLI can compare it with where the window ended up
     var lastTarget: CGRect?
 
@@ -40,7 +42,17 @@ final class WindowManager {
 
         switch action {
         case .restore:
-            if let r = saved[w] { AX.setFrame(r, of: w); saved[w] = nil; lastSet[w] = nil; lastTarget = r }
+            // Right after tile all, Restore on any of its windows undoes the whole tile:
+            // every window still where tile all left it goes back to where it was before.
+            var group = [w]
+            if let i = lastTiled.firstIndex(where: { CFEqual($0.window, w) }) {
+                group = tileUndoGroup(focused: i, placed: lastTiled.map(\.frame), now: lastTiled.map { AX.frame(of: $0.window) })
+                    .map { lastTiled[$0].window }
+                lastTiled = []
+            }
+            for g in group {
+                if let r = saved[g] { AX.setFrame(r, of: g); saved[g] = nil; lastSet[g] = nil; lastTarget = r }
+            }
             lastKey = nil
         case .nextDisplay, .prevDisplay:
             // Walk the window one half at a time across every display:
@@ -134,6 +146,7 @@ final class WindowManager {
         }
         guard !all.isEmpty else { NSSound.beep(); return [] }
         var placed: [(window: AXUIElement, target: CGRect)] = []
+        var tiled: [(window: AXUIElement, frame: CGRect)] = []
         var order: [NSScreen] = []
         var byScreen: [NSScreen: [(window: AXUIElement, frame: CGRect)]] = [:]
         for item in all {
@@ -170,9 +183,16 @@ final class WindowManager {
                     lastSet[item.window] = slots[k]
                 }
             }
-            for (item, k) in zip(chosen, slotOf) { placed.append((item.window, slots[k])) }
+            // Remember where each window really ended up (a minimum size can make it differ from its slot)
+            let final = settle(zip(chosen, slotOf).map { ($0.window, slots[$1]) })
+            for ((item, k), f) in zip(zip(chosen, slotOf), final) {
+                placed.append((item.window, slots[k]))
+                lastSet[item.window] = f
+                tiled.append((item.window, f))
+            }
         }
         lastKey = nil
+        lastTiled = tiled
         return placed
     }
 
