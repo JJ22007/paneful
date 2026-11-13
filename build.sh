@@ -17,7 +17,8 @@ LOCAL_ID="Paneful Local Signing"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
 
-swiftc -O -swift-version 5 Sources/*.swift -o "$BIN"
+# Compile for the oldest macOS we claim (LSMinimumSystemVersion below), so a newer-only API fails here
+swiftc -O -swift-version 5 -target "$(uname -m)-apple-macos13" Sources/*.swift -o "$BIN"
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
