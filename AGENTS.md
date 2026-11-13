@@ -82,7 +82,7 @@ All sources are in `Sources/`.
 3. Document it in the README field table and add or update a file in `examples/`.
 
 **Change how "tile all" assigns windows**
-Edit `WindowManager.tileAll()`. The row shapes come from `TileConfig.rows(for:)` and `defaultTileRows(_:)`. Many apps have a minimum window size, so thin cells overlap in practice even when the math is right. If the user can run it, ask them to try `paneful save && paneful tile` and check the lines marked `differs`, then `paneful restore`.
+Edit `WindowManager.tileAll()`. The shapes come from `tileShape(_:rows:)` in `Geometry.swift` (a tree of `Tile` slots; the user's `tile.rows` override it), and `tileFrames` lays them out. Many apps have a minimum window size: `tileAll()` reads the windows back and re-lays the shape with those minimums (`shareOut`), so keep columns whole where you can, since a wide window then widens its column instead of overlapping a neighbor. If the user can run it, ask them to try `paneful save && paneful tile` and check the lines marked `differs`, then `paneful restore`.
 
 **See what other agents did**
 [`docs/recipes/`](docs/recipes/README.md) has six one-sentence changes made by an agent, with their diffs and what happened on real windows.

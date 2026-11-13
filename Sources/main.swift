@@ -97,6 +97,31 @@ func selfTest() -> Int32 {
         && DragSnapper.zone(at: CGPoint(x: 1511, y: 20), in: f) == .bottomRight
         && DragSnapper.zone(at: CGPoint(x: 700, y: 500), in: f) == nil)
 
+    expect("share out: even split without minimums", shareOut(1000, weights: [1, 1], mins: [0, 0]) == [500, 500])
+    expect("share out: a window needing 700 gets it, the other takes the rest", shareOut(1000, weights: [1, 1], mins: [0, 700]) == [300, 700])
+    expect("share out: minimums that don't fit are kept", shareOut(1000, weights: [1, 1], mins: [600, 700]) == [600, 700])
+    check("tile 2, even", tileFrames(tileShape(2), visible: v)[1], CGRect(x: 756, y: 33, width: 756, height: 900))
+    let fit = tileFrames(tileShape(2), visible: v, mins: [.zero, CGSize(width: 1000, height: 0)])
+    check("tile 2, right window needs 1000 wide", fit[1], CGRect(x: 512, y: 33, width: 1000, height: 900))
+    check("tile 2, left window takes the rest", fit[0], CGRect(x: 0, y: 33, width: 512, height: 900))
+    let three = tileFrames(tileShape(3), visible: v)
+    expect("tile 3: a 2×2 grid with the bottom right free", three.count == 3 && three.allSatisfy { abs($0.width - 756) < 1 && abs($0.height - 450) < 1 }
+        && !three.contains { nearlyEqual($0, CGRect(x: 756, y: 483, width: 756, height: 450), tol: 1) }, "\(three)")
+    let five = tileFrames(tileShape(5), visible: v)
+    expect("tile 5: 2×2 grid and a full-height sidebar on the right", five.count == 5
+        && five.filter { abs($0.height - 900) < 1 && abs($0.maxX - 1512) < 1 }.count == 1
+        && five.filter { abs($0.height - 450) < 1 }.count == 4, "\(five)")
+    let cols = tileFrames(tileShape(4), visible: v, mins: [.zero, .zero, CGSize(width: 1000, height: 0), .zero])
+    expect("tile 4: a wide window widens its whole column", cols.count == 4 && abs(cols[2].width - 1000) < 1 && abs(cols[3].width - 1000) < 1
+        && abs(cols[0].width - 512) < 1, "\(cols)")
+    expect("tile: rows from the config still apply", tileFrames(tileShape(5, rows: [3, 2]), visible: v).filter { abs($0.width - 504) < 1 }.count == 3)
+    check("tile with gap 12", tileFrames(tileShape(2), visible: v, gap: 12)[0], CGRect(x: 12, y: 45, width: 738, height: 876))
+    let tooWide = tileFrames(tileShape(2), visible: v, mins: [CGSize(width: 900, height: 0), CGSize(width: 900, height: 0)])
+    expect("tile: windows that can't both fit still start on screen", tooWide.allSatisfy { $0.minX >= 0 && $0.minX + 900 <= 1512 }, "\(tooWide)")
+    expect("tile: windows keep the slot nearest them, front first",
+           assignSlots(windows: [CGRect(x: 900, y: 40, width: 300, height: 300), CGRect(x: 10, y: 40, width: 300, height: 300)],
+                       slots: tileFrames(tileShape(2), visible: v)) == [1, 0])
+
     let layout = CLI.parseLayout(#"[{"app":"Safari","x":0,"y":0,"w":0.6,"h":1},{"title":"todo","x":0.6,"y":0,"w":0.4,"h":0.5,"display":2}]"#)
     expect("apply: layout parses", layout.error == nil && layout.entries.count == 2 && layout.entries[0].app == "Safari"
         && layout.entries[1].title == "todo" && layout.entries[1].display == 2 && layout.entries[1].unit.height == 0.5, layout.error ?? "")

@@ -139,22 +139,45 @@ final class WindowManager {
         for scr in order {
             let visible = flip(scr.visibleFrame)
             let chosen = Array(byScreen[scr]!.prefix(max(1, config.tile.max)))
-            let rows = config.tile.rows(for: chosen.count)
-            // Assign cells by where windows already are (rows first, then columns) so they move as little as possible
-            let byY = chosen.sorted { $0.frame.midY < $1.frame.midY }
-            var ordered: [(window: AXUIElement, frame: CGRect)] = []
-            var idx = 0
-            for cols in rows {
-                ordered += byY[idx..<idx + cols].sorted { $0.frame.midX < $1.frame.midX }
-                idx += cols
+            let shape = tileShape(chosen.count, rows: config.tile.customRows(for: chosen.count))
+            var mins = [CGSize](repeating: .zero, count: chosen.count)
+            var slots = tileFrames(shape, visible: visible, gap: gap)
+            let slotOf = assignSlots(windows: chosen.map(\.frame), slots: slots)
+            for (item, k) in zip(chosen, slotOf) { place(item.window, from: item.frame, to: slots[k], within: nil, key: nil) }
+            // Many apps won't go below a minimum size. Read the windows back; where one came out bigger
+            // than its slot, give it that much room and let the others share the rest. Repeat while that
+            // squeezes another window below its own minimum.
+            for _ in 0..<3 {
+                let got = settle(chosen.indices.map { (chosen[$0].window, slots[slotOf[$0]]) })
+                var grew = false
+                for (i, k) in slotOf.enumerated() {
+                    let want = slots[k], have = got[i]
+                    if have.width > want.width + 2, have.width > mins[k].width { mins[k].width = have.width; grew = true }
+                    if have.height > want.height + 2, have.height > mins[k].height { mins[k].height = have.height; grew = true }
+                }
+                guard grew else { break }
+                slots = tileFrames(shape, visible: visible, gap: gap, mins: mins)
+                for (item, k) in zip(chosen, slotOf) {
+                    AX.setFrame(slots[k], of: item.window)
+                    lastSet[item.window] = slots[k]
+                }
             }
-            for (item, target) in zip(ordered, tileLayout(rows: rows, visible: visible, gap: gap)) {
-                place(item.window, from: item.frame, to: target, within: nil, key: nil)
-                placed.append((item.window, target))
-            }
+            for (item, k) in zip(chosen, slotOf) { placed.append((item.window, slots[k])) }
         }
         lastKey = nil
         return placed
+    }
+
+    /// Wait until the windows reach their targets (or stop moving), and return where they are
+    private func settle(_ moves: [(window: AXUIElement, target: CGRect)]) -> [CGRect] {
+        var frames: [CGRect] = []
+        for _ in 0..<12 {
+            let now = moves.map { AX.frame(of: $0.window) ?? $0.target }
+            if zip(now, moves).allSatisfy({ nearlyEqual($0, $1.target, tol: 3) }) || now == frames { return now }
+            frames = now
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        }
+        return frames
     }
 
     /// Put a window back at an exact frame (used by `paneful restore`). Restore can undo it like any other move.

@@ -31,9 +31,12 @@ struct TileConfig: Codable, Equatable {
         rows = try c.decodeIfPresent([String: [Int]].self, forKey: .rows) ?? [:]
     }
 
-    func rows(for n: Int) -> [Int] {
+    func rows(for n: Int) -> [Int] { customRows(for: n) ?? defaultTileRows(n) }
+
+    /// The rows the user set for n windows, if they set valid ones
+    func customRows(for n: Int) -> [Int]? {
         if let r = rows[String(n)], r.reduce(0, +) == n, r.allSatisfy({ $0 > 0 }) { return r }
-        return defaultTileRows(n)
+        return nil
     }
 }
 

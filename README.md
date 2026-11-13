@@ -122,6 +122,8 @@ The config lives at `~/.config/paneful/config.json`. Open it from the menu bar w
 | `tile.max` | The most windows "tile all" will arrange. The rest stay put; the most recently used win. |
 | `tile.rows` | Window count → windows per row. `"5": [2, 3]` puts two on top and three below. Unlisted counts use the default rule. |
 
+**How tile all lays windows out.** Two windows side by side, three in a 2×2 grid with one corner free (narrow thirds are rarely usable), four in a 2×2 grid, five in a 2×2 grid plus a sidebar on the right, six in three columns of two. Many apps refuse to get narrower or shorter than some minimum. Paneful reads each window back after placing it; when one came out bigger than its slot, it gets that room and the other windows share what is left, so nothing ends up hanging off the screen.
+
 **Shortcut syntax.** Modifiers plus one key, joined with `+`, case-insensitive. Modifiers are `ctrl`, `alt`, `shift`, `cmd`. Keys are letters, digits, `left` `right` `up` `down`, `return`, `delete`, `space`, `tab`, `escape`, `f1`–`f12`, and common punctuation.
 
 **When you get it wrong.** The menu shows "Config Problems" with the exact entry at fault. That entry is skipped and the rest keeps working. You can also check a file from the terminal:

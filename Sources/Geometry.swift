@@ -108,3 +108,117 @@ func flip(_ r: CGRect) -> CGRect {
 }
 
 extension CGRect { var area: CGFloat { isNull ? 0 : width * height } }
+
+// MARK: Tile all, with room for windows that refuse to shrink
+
+/// A tile-all layout: slots side by side (`across`) or stacked (`down`), nested.
+/// `across` takes relative widths; a slot that is `empty` is left free on purpose.
+indirect enum Tile: Equatable {
+    case window
+    case empty
+    case across([Tile], weights: [CGFloat])
+    case down([Tile])
+
+    static func across(_ ts: [Tile]) -> Tile { .across(ts, weights: ts.map { _ in 1 }) }
+
+    var windowCount: Int {
+        switch self {
+        case .window: return 1
+        case .empty: return 0
+        case .across(let ts, _): return ts.reduce(0) { $0 + $1.windowCount }
+        case .down(let ts): return ts.reduce(0) { $0 + $1.windowCount }
+        }
+    }
+}
+
+/// The default layout for n windows. `rows` (from the config) overrides it with rows of equal cells.
+/// Columns are kept whole where possible, so a window that needs more width widens its column, not just its cell.
+func tileShape(_ n: Int, rows custom: [Int]? = nil) -> Tile {
+    func col(_ k: Int, of slots: Int) -> Tile { .down((0..<slots).map { $0 < k ? .window : .empty }) }
+    if let r = custom { return .down(r.map { .across(Array(repeating: Tile.window, count: $0)) }) }
+    switch n {
+    case ...1: return .window
+    case 2: return .across([.window, .window])
+    case 3: return .across([col(2, of: 2), col(1, of: 2)])   // a 2×2 grid with one corner free: wide enough to use
+    case 4: return .across([col(2, of: 2), col(2, of: 2)])
+    case 5: return .across([col(2, of: 2), col(2, of: 2), .window], weights: [3, 3, 2])  // 2×2 grid and a sidebar
+    case 6: return .across([col(2, of: 2), col(2, of: 2), col(2, of: 2)])
+    default: return .down(defaultTileRows(n).map { .across(Array(repeating: Tile.window, count: $0)) })
+    }
+}
+
+/// Split `total` by weight, but never give a part less than its minimum: parts that need more get it,
+/// and the rest share what is left. If even the minimums don't fit, each part gets its minimum.
+func shareOut(_ total: CGFloat, weights: [CGFloat], mins: [CGFloat]) -> [CGFloat] {
+    var out = mins.map { _ in CGFloat(0) }, fixed = mins.map { _ in false }
+    while true {
+        let flex = out.indices.filter { !fixed[$0] }
+        if flex.isEmpty { return out }
+        let rest = total - out.indices.filter { fixed[$0] }.reduce(0) { $0 + out[$1] }
+        let wsum = flex.reduce(0) { $0 + weights[$1] }
+        let tooSmall = flex.filter { mins[$0] > rest * weights[$0] / wsum + 0.5 }
+        if tooSmall.isEmpty {
+            for i in flex { out[i] = max(0, rest * weights[i] / wsum) }
+            return out
+        }
+        for i in tooSmall { fixed[i] = true; out[i] = mins[i] }
+    }
+}
+
+/// Frames for the window slots of `t`, in depth-first order. `mins` are the smallest sizes the windows
+/// accept (zero when unknown), in the same order. Frames stay on screen even when the minimums don't fit.
+func tileFrames(_ t: Tile, visible v: CGRect, gap: CGFloat = 0, mins: [CGSize] = []) -> [CGRect] {
+    let area = v.insetBy(dx: gap, dy: gap)
+    var next = 0
+    func minSize(_ t: Tile, from k: inout Int) -> CGSize {
+        switch t {
+        case .window: defer { k += 1 }; return k < mins.count ? mins[k] : .zero
+        case .empty: return .zero
+        case .across(let ts, _):
+            let s = ts.map { minSize($0, from: &k) }
+            return CGSize(width: s.reduce(0) { $0 + $1.width } + gap * CGFloat(ts.count - 1), height: s.map(\.height).max() ?? 0)
+        case .down(let ts):
+            let s = ts.map { minSize($0, from: &k) }
+            return CGSize(width: s.map(\.width).max() ?? 0, height: s.reduce(0) { $0 + $1.height } + gap * CGFloat(ts.count - 1))
+        }
+    }
+    var out: [CGRect] = []
+    func lay(_ t: Tile, in r: CGRect) {
+        switch t {
+        case .window:
+            let m = next < mins.count ? mins[next] : .zero
+            next += 1
+            // Keep a window that will be wider or taller than its slot from running off the screen
+            let x = min(r.minX, area.maxX - max(r.width, m.width)), y = min(r.minY, area.maxY - max(r.height, m.height))
+            out.append(CGRect(x: max(area.minX, x), y: max(area.minY, y), width: r.width, height: r.height).integral)
+        case .empty: break
+        case .across(let ts, let weights):
+            var k = next
+            let ms = ts.map { minSize($0, from: &k).width }
+            let ws = shareOut(r.width - gap * CGFloat(ts.count - 1), weights: weights, mins: ms)
+            var x = r.minX
+            for (t, w) in zip(ts, ws) { lay(t, in: CGRect(x: x, y: r.minY, width: w, height: r.height)); x += w + gap }
+        case .down(let ts):
+            var k = next
+            let ms = ts.map { minSize($0, from: &k).height }
+            let hs = shareOut(r.height - gap * CGFloat(ts.count - 1), weights: ts.map { _ in 1 }, mins: ms)
+            var y = r.minY
+            for (t, h) in zip(ts, hs) { lay(t, in: CGRect(x: r.minX, y: y, width: r.width, height: h)); y += h + gap }
+        }
+    }
+    lay(t, in: area)
+    return out
+}
+
+/// Which window goes in which slot: front windows choose first, each taking the free slot nearest to where it is,
+/// so windows move as little as possible. Returns, for each window, the index of its slot.
+func assignSlots(windows: [CGRect], slots: [CGRect]) -> [Int] {
+    var free = Set(slots.indices)
+    return windows.map { w in
+        let s = free.min { a, b in
+            hypot(slots[a].midX - w.midX, slots[a].midY - w.midY) < hypot(slots[b].midX - w.midX, slots[b].midY - w.midY)
+        }!
+        free.remove(s)
+        return s
+    }
+}
