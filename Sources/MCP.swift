@@ -11,7 +11,7 @@ enum MCP {
     static let supportedVersions = ["2025-06-18", "2025-03-26", "2024-11-05"]
 
     static let tools: [[String: Any]] = [
-        tool("list_windows", "List visible windows front to back: app, bundle id, title, display, position as screen fractions, and frame in points.", [:]),
+        tool("list_windows", "List visible windows front to back: app, bundle id, title, display, position as screen fractions, and frame in points. Optionally only those of one app, with a title, or on one display.", filters),
         tool("list_displays", "List displays, numbered left to right as apply_layout's \"display\" counts them.", [:]),
         tool("apply_layout", """
             Place several windows at once. Positions are fractions of the screen from 0 to 1, origin top left. \
@@ -26,11 +26,18 @@ enum MCP {
                     "display": ["type": "integer", "description": "1-based, from list_displays"],
                 ], "required": ["x", "y", "w", "h"]]],
             ], required: ["windows"]),
-        tool("tile_all", "Tile every visible window into a grid, then report each window's real frame.", [:]),
+        tool("tile_all", "Tile the visible windows, or only those of one app, with a title, or on one display. Windows that refuse to shrink get the room they need. Then report each window's real frame.", filters),
         tool("save_layout", "Return where every window is now. Keep the returned layout and pass it to restore_layout to undo.", [:]),
         tool("restore_layout", "Put windows back where save_layout found them, then read them back. Windows that are gone or whose display is disconnected are reported as skipped.", [
             "layout": ["type": "array", "items": ["type": "object"], "description": "The layout returned by save_layout"],
         ], required: ["layout"]),
+    ]
+
+    /// Optional filters shared by list_windows and tile_all, the same as the command line's --app, --title, --display
+    private static let filters: [String: Any] = [
+        "app": ["type": "string", "description": "App name or bundle id, case-insensitive substring"],
+        "title": ["type": "string", "description": "Window title, case-insensitive substring"],
+        "display": ["type": "integer", "description": "1-based, from list_displays"],
     ]
 
     private static func tool(_ name: String, _ description: String, _ props: [String: Any], required: [String] = []) -> [String: Any] {
@@ -97,9 +104,14 @@ enum MCP {
             (try? JSONSerialization.data(withJSONObject: v)).map { String(decoding: $0, as: UTF8.self) }
         }
         switch name {
-        case "list_windows", "save_layout": return ["list", "--json"]
+        case "save_layout": return ["list", "--json"]
         case "list_displays": return ["displays", "--json"]
-        case "tile_all": return ["tile", "--json"]
+        case "list_windows", "tile_all":
+            var c = [name == "list_windows" ? "list" : "tile", "--json"]
+            if let a = args["app"] as? String { c += ["--app", a] }
+            if let t = args["title"] as? String { c += ["--title", t] }
+            if let d = args["display"] { guard let n = (d as? NSNumber)?.intValue else { return nil }; c += ["--display", String(n)] }
+            return c
         case "apply_layout":
             guard let w = args["windows"] as? [Any], let s = json(w) else { return nil }
             return ["apply", s, "--json"]

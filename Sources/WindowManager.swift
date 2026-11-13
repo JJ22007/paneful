@@ -126,12 +126,7 @@ final class WindowManager {
     /// Returns each window that was moved and the frame it was asked to take.
     @discardableResult
     func tileAll(only: NSScreen? = nil, app: String? = nil, title: String? = nil) -> [(window: AXUIElement, target: CGRect)] {
-        let all = AX.windowsFrontToBack().filter { item in
-            guard app != nil || title != nil else { return true }
-            let d = AX.describe(item.window)
-            return (app.map { d.app.localizedCaseInsensitiveContains($0) || d.bundleID.localizedCaseInsensitiveContains($0) } ?? true)
-                && (title.map { d.title.localizedCaseInsensitiveContains($0) } ?? true)
-        }
+        let all = AX.windowsFrontToBack().filter { AX.matches($0.window, app: app, title: title) }
         guard !all.isEmpty else { NSSound.beep(); return [] }
         var placed: [(window: AXUIElement, target: CGRect)] = []
         var order: [NSScreen] = []
