@@ -64,7 +64,7 @@ enum MCP {
             return result([
                 "protocolVersion": supportedVersions.contains(asked) ? asked : supportedVersions[0],
                 "capabilities": ["tools": [:] as [String: Any]],
-                "serverInfo": ["name": "paneful", "version": "1.0"],
+                "serverInfo": ["name": "paneful", "version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"],
                 "instructions": "Paneful arranges windows on this Mac. Every move is read back from macOS; a result is an error unless it was verified. Call save_layout before changing anything so restore_layout can undo it.",
             ])
         case "ping":

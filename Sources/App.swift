@@ -110,7 +110,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         if !cfg.custom.isEmpty {
-            menu.addItem(.sectionHeader(title: "Custom"))
+            if #available(macOS 14, *) {
+                menu.addItem(.sectionHeader(title: "Custom"))
+            } else {
+                let header = NSMenuItem(title: "Custom", action: nil, keyEquivalent: "")
+                header.isEnabled = false
+                menu.addItem(header)
+            }
             for (i, l) in cfg.custom.enumerated() {
                 let it = item(l.name, #selector(runCustom(_:)), key: l.key)
                 it.image = glyphImage([l.unit])

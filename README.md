@@ -2,7 +2,7 @@
 
 <p align="center">
   <b>A small macOS window manager for you and your coding agent to fork and reshape.</b><br>
-  about 2,100 lines of Swift, no dependencies, one <code>swiftc</code> command to build. Comes with a CLI your agent can use to arrange your windows.
+  about 2,700 lines of Swift, no dependencies, one <code>swiftc</code> command to build. Comes with a CLI your agent can use to arrange your windows.
 </p>
 
 <p align="center">
@@ -19,7 +19,7 @@
 </p>
 <p align="center"><sub>One sentence to Claude Code, and a messy desktop snaps into place. Real recording; the few seconds the agent spends thinking are sped up.</sub></p>
 
-Paneful is a menu bar app that moves windows with the keyboard, or on an agent's say-so. It is not trying to be a better Rectangle. It is trying to be small enough that you, or your coding agent, can read all of it and turn it into your own tool: 13 files and about 2,100 lines of Swift, no dependencies, no Xcode project, and a self-test that runs on every build.
+Paneful is a menu bar app that moves windows with the keyboard, or on an agent's say-so. It is not trying to be a better Rectangle. It is trying to be small enough that you, or your coding agent, can read all of it and turn it into your own tool: 14 files and about 2,700 lines of Swift, no dependencies, no Xcode project, and a self-test that runs on every build.
 
 ## Which one should you use?
 
@@ -56,6 +56,10 @@ bash build.sh install
 ```
 
 This compiles the app, runs the self-test, installs `Paneful.app` into `~/Applications` and launches it. The welcome guide then walks you through switching Paneful on under System Settings → Privacy & Security → Accessibility.
+
+### Or download a built app
+
+Each [release](https://github.com/JJ22007/paneful/releases) has **Paneful-universal.zip** (Apple silicon and Intel). Unzip it and move **Paneful.app** into Applications. It is not notarized by Apple: if the first launch is blocked, choose **Open Anyway** under System Settings → Privacy & Security. It is ad-hoc signed, so macOS asks for the Accessibility permission again after every update; building from source with the step below avoids that, and lets you change Paneful. `SHA256SUMS.txt` checks the download: `shasum -a 256 -c SHA256SUMS.txt`.
 
 ### Planning to rebuild? Run this once
 
@@ -203,7 +207,28 @@ Check the output: if a line says "differs", tell me. Act right away, then reply 
 
 The command line tool talks to the running app, so Paneful has to be open and have the Accessibility permission. The agent itself needs no special permission.
 
-**Trust model.** The command reaches the app through a macOS distributed notification, which any process in your login session can send. Each request must carry a random token that Paneful writes at launch to `~/Library/Application Support/Paneful/cli-token`, readable only by your user. Sandboxed apps can't read it, so they can't use Paneful to list your window titles or move windows. Unsandboxed programs you run can, but they could already read your files and do far more. Replies are only written into your own temporary folder. If you'd rather have no channel at all, remove `CLI.startServer()` in your fork.
+**Trust model.** The command reaches the app through a macOS distributed notification, which any process in your login session can send. Each request must carry a random token that Paneful writes at launch to `~/Library/Application Support/Paneful/cli-token`, readable only by your user. Sandboxed apps can't read it, so they can't use Paneful to list your window titles or move windows. Unsandboxed programs you run can, but they could already read your files and do far more. Replies are only written into your own temporary folder. If you'd rather have no channel at all, remove `CLI.startServer()` in your fork. More in [SECURITY.md](SECURITY.md), including what Paneful reads and how to report a problem.
+
+## Use it with Knobs and Overbright
+
+Paneful only moves windows. The same author has two other small tools: [Knobs](https://github.com/JJ22007/knobs) changes macOS settings (the Dock, hot corners, desktop icons, keeping the display awake) and [Overbright](https://github.com/JJ22007/overbright) sets the built-in display's brightness. A Knobs profile can drive all three at once. Before a presentation, for example:
+
+```json
+{
+  "knobs": 1,
+  "settings": { "awake.display": true, "desktop.icons": false, "dock.autohide": true },
+  "overbright": { "percent": 130 },
+  "paneful": { "layout": [{ "app": "Keynote", "x": 0, "y": 0, "w": 1, "h": 1 }] }
+}
+```
+
+```bash
+knobs apply present.knobs.json --dry-run   # see what would change
+knobs apply present.knobs.json
+knobs undo                                 # settings, brightness and every window back as they were
+```
+
+Knobs calls `paneful mcp` and `overbright mcp` and reports what each one read back, so you see which windows really moved. Paneful's layout is the same as `paneful apply` uses. The full example is [`present-keynote.knobs.json`](https://github.com/JJ22007/knobs/blob/main/examples/present-keynote.knobs.json) in Knobs. Each tool works on its own too; none of them needs the others.
 
 ## Build your own
 

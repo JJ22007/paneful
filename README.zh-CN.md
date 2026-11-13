@@ -2,7 +2,7 @@
 
 <p align="center">
   <b>一个小巧的 macOS 窗口管理器,给你和你的 AI 编程助手拿去 Fork、去改造。</b><br>
-  约 2,100 行 Swift,零依赖,一条 <code>swiftc</code> 命令就能编译。自带命令行,agent 可以直接用它帮你摆窗口。
+  约 2,700 行 Swift,零依赖,一条 <code>swiftc</code> 命令就能编译。自带命令行,agent 可以直接用它帮你摆窗口。
 </p>
 
 <p align="center">
@@ -14,7 +14,7 @@
 </p>
 <p align="center"><sub>对 Claude Code 说一句话,杂乱的桌面瞬间归位。真实录屏,agent 思考的几秒做了加速。</sub></p>
 
-Paneful 是一个菜单栏 App,用键盘或者让 agent 把窗口摆到位。它不打算做一个更好的 Rectangle,而是要小到你或你的 AI 编程助手能把它整个读完,再改成你自己的工具:13 个文件、约 2,100 行 Swift,没有第三方依赖,不需要 Xcode 工程,每次编译都会跑一遍自测。
+Paneful 是一个菜单栏 App,用键盘或者让 agent 把窗口摆到位。它不打算做一个更好的 Rectangle,而是要小到你或你的 AI 编程助手能把它整个读完,再改成你自己的工具:14 个文件、约 2,700 行 Swift,没有第三方依赖,不需要 Xcode 工程,每次编译都会跑一遍自测。
 
 > 界面是英文的,出错和权限提示会跟随系统语言显示中文。想要完整的中文界面?这正好是一个很适合交给 AI 助手的改造任务,见下文「做一个属于你自己的」。
 
@@ -53,6 +53,10 @@ bash build.sh install
 ```
 
 脚本会编译、跑自测、把 `Paneful.app` 装到 `~/Applications` 并启动。之后按欢迎引导,在 系统设置 → 隐私与安全性 → 辅助功能 里打开 Paneful。
+
+### 或者下载编译好的 App
+
+每个 [Release](https://github.com/JJ22007/paneful/releases) 都附有 **Paneful-universal.zip**(Apple 芯片和 Intel 通用)。解压后把 **Paneful.app** 拖进"应用程序"。它没有经过 Apple 公证:第一次打开如果被拦下,到 系统设置 → 隐私与安全性 里点"仍要打开"。它用的是临时签名,所以每次更新后 macOS 都会要求重新授权辅助功能;按下面的步骤从源码编译就没有这个问题,而且你还能改 Paneful。`SHA256SUMS.txt` 用来核对下载:`shasum -a 256 -c SHA256SUMS.txt`。
 
 ### 打算反复编译?先运行一次这个
 
@@ -177,7 +181,28 @@ Check the output: if a line says "differs", tell me. Act right away, then reply 
 
 命令行是和正在运行的 App 通信的,所以 Paneful 需要开着并且已有辅助功能权限;agent 本身不需要任何特殊权限。
 
-**信任模型。** 命令行通过 macOS 的分布式通知把请求发给 App,登录会话里的任何进程都能发这种通知。每个请求都必须带上一个随机令牌,Paneful 启动时把它写到 `~/Library/Application Support/Paneful/cli-token`,只有你的用户能读。沙盒里的 App 读不到它,所以没法借 Paneful 读取窗口标题或移动窗口;你自己运行的非沙盒程序可以,但它们本来就能读你的文件、做更多的事。回复只会写进你自己的临时目录。如果完全不想要这个通道,在自己的 Fork 里删掉 `CLI.startServer()`。
+**信任模型。** 命令行通过 macOS 的分布式通知把请求发给 App,登录会话里的任何进程都能发这种通知。每个请求都必须带上一个随机令牌,Paneful 启动时把它写到 `~/Library/Application Support/Paneful/cli-token`,只有你的用户能读。沙盒里的 App 读不到它,所以没法借 Paneful 读取窗口标题或移动窗口;你自己运行的非沙盒程序可以,但它们本来就能读你的文件、做更多的事。回复只会写进你自己的临时目录。如果完全不想要这个通道,在自己的 Fork 里删掉 `CLI.startServer()`。更多见 [SECURITY.md](SECURITY.md)(英文),包括 Paneful 读取了什么、怎么报告安全问题。
+
+## 和 Knobs、Overbright 一起用
+
+Paneful 只管窗口。同一个作者还有两个小工具:[Knobs](https://github.com/JJ22007/knobs) 改 macOS 设置(程序坞、触发角、桌面图标、保持屏幕常亮),[Overbright](https://github.com/JJ22007/overbright) 调内建屏幕的亮度。一个 Knobs 配置文件可以同时驱动这三个。比如演示之前:
+
+```json
+{
+  "knobs": 1,
+  "settings": { "awake.display": true, "desktop.icons": false, "dock.autohide": true },
+  "overbright": { "percent": 130 },
+  "paneful": { "layout": [{ "app": "Keynote", "x": 0, "y": 0, "w": 1, "h": 1 }] }
+}
+```
+
+```bash
+knobs apply present.knobs.json --dry-run   # 先看会改什么
+knobs apply present.knobs.json
+knobs undo                                 # 设置、亮度和每个窗口一起恢复原样
+```
+
+Knobs 调用 `paneful mcp` 和 `overbright mcp`,并列出每个工具读回的结果,你能看到哪些窗口真的移动了。Paneful 的布局写法和 `paneful apply` 一样。完整示例见 Knobs 里的 [`present-keynote.knobs.json`](https://github.com/JJ22007/knobs/blob/main/examples/present-keynote.knobs.json)。三个工具也都能单独用,互不依赖。
 
 ## 做一个属于你自己的
 
