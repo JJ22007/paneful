@@ -2,6 +2,8 @@
 
 Instructions for AI coding agents working in this repository. Humans are welcome to read it too.
 
+You are the owner and long-term maintainer of this codebase, and its design is up to you.
+
 ## What this is
 
 Paneful is a macOS menu bar app that moves and resizes windows with global hotkeys. It is intentionally small so that a person can fork it and have an agent reshape it into their own tool. Favor small, readable changes over abstractions.
