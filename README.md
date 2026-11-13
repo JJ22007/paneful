@@ -165,7 +165,7 @@ ln -s ~/Applications/Paneful.app/Contents/MacOS/Paneful /usr/local/bin/paneful
 
 | Command | What it does |
 |---|---|
-| `paneful list` | List every window: app, title, display, and position as screen fractions |
+| `paneful list [--display N] [--app A]` | List every window, or only some: app, title, display, and position as screen fractions |
 | `paneful displays` | List displays, numbered left to right |
 | `paneful tile [--display N] [--app A]` | Tile all windows into a grid, or only those on one display or of one app |
 | `paneful place 0 0 0.6 1 --app Safari` | Put a window anywhere. Numbers are `x y w h` from 0 to 1 |

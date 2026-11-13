@@ -143,7 +143,7 @@ ln -s ~/Applications/Paneful.app/Contents/MacOS/Paneful /usr/local/bin/paneful
 
 | 命令 | 作用 |
 |---|---|
-| `paneful list` | 列出所有窗口:App、标题、所在显示器、位置(屏幕比例) |
+| `paneful list [--display N] [--app A]` | 列出所有窗口(或只列一部分):App、标题、所在显示器、位置(屏幕比例) |
 | `paneful displays` | 列出显示器,从左到右编号 |
 | `paneful tile [--display N] [--app A]` | 把所有窗口排成网格,或只排某一块显示器上、某个 App 的 |
 | `paneful place 0 0 0.6 1 --app Safari` | 把窗口放到任意位置,四个数字是 `x y w h`,范围 0~1 |
