@@ -125,14 +125,19 @@ final class WindowManager {
     /// Tile all: spread the visible windows on each display. Above the limit, only the most recent ones are tiled.
     /// Returns each window that was moved and the frame it was asked to take.
     @discardableResult
-    func tileAll() -> [(window: AXUIElement, target: CGRect)] {
-        let all = AX.windowsFrontToBack()
+    func tileAll(only: NSScreen? = nil, app: String? = nil, title: String? = nil) -> [(window: AXUIElement, target: CGRect)] {
+        let all = AX.windowsFrontToBack().filter { item in
+            guard app != nil || title != nil else { return true }
+            let d = AX.describe(item.window)
+            return (app.map { d.app.localizedCaseInsensitiveContains($0) || d.bundleID.localizedCaseInsensitiveContains($0) } ?? true)
+                && (title.map { d.title.localizedCaseInsensitiveContains($0) } ?? true)
+        }
         guard !all.isEmpty else { NSSound.beep(); return [] }
         var placed: [(window: AXUIElement, target: CGRect)] = []
         var order: [NSScreen] = []
         var byScreen: [NSScreen: [(window: AXUIElement, frame: CGRect)]] = [:]
         for item in all {
-            guard let scr = screen(for: item.frame) else { continue }
+            guard let scr = screen(for: item.frame), only == nil || scr == only else { continue }
             if byScreen[scr] == nil { order.append(scr) }
             byScreen[scr, default: []].append(item)
         }

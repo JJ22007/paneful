@@ -27,7 +27,8 @@ enum CLI {
 
       paneful list                                 list windows, front to back
       paneful displays                             list displays, numbered left to right
-      paneful tile                                 tile every window into a grid
+      paneful tile [--display N] [--app A] [--title T]
+                                               tile every window, or only those on display N / matching A, T
       paneful run <action> [--app A] [--title T] [--display N]
                                                    run a built-in action
       paneful place <x> <y> <w> <h> [--app A] [--title T] [--display N]
@@ -214,7 +215,7 @@ enum CLI {
             }.joined(separator: "\n"))
 
         case "tile":
-            let placed = WindowManager.shared.tileAll()
+            let placed = WindowManager.shared.tileAll(only: display, app: app, title: title)
             return report(placed, verb: "tiled", json: json)
 
         case "run":

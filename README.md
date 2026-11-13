@@ -162,7 +162,7 @@ ln -s ~/Applications/Paneful.app/Contents/MacOS/Paneful /usr/local/bin/paneful
 |---|---|
 | `paneful list` | List every window: app, title, display, and position as screen fractions |
 | `paneful displays` | List displays, numbered left to right |
-| `paneful tile` | Tile all windows into a grid |
+| `paneful tile [--display N] [--app A]` | Tile all windows into a grid, or only those on one display or of one app |
 | `paneful place 0 0 0.6 1 --app Safari` | Put a window anywhere. Numbers are `x y w h` from 0 to 1 |
 | `paneful run leftHalf --title notes --display 2` | Run any built-in action on a specific window, optionally on another display |
 | `paneful fullscreen off --app Keynote` | Enter or leave native fullscreen |
