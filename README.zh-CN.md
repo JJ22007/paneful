@@ -80,7 +80,7 @@ bash scripts/setup-signing.sh
 | `⌃⌥↩` | 最大化 | `maximize` |
 | `⌃⌥M` | 接近最大化(90%) | `almostMaximize` |
 | `⌃⌥C` | 居中 | `center` |
-| `⌃⌥⌫` | 还原到之前的位置 | `restore` |
+| `⌃⌥⌫` | 还原到之前的位置。刚用过一键排列时，一次把排过的窗口全部还原 | `restore` |
 | `⌃⌥⌘→` `⌃⌥⌘←` | 向右走 / 向左走:每次半屏,可跨所有显示器 | `nextDisplay` `prevDisplay` |
 | `⌃⌥⌘↑` | 跳到下一块显示器:激活那里最前面的窗口,鼠标也移过去,窗口不动 | `focusNextDisplay` |
 

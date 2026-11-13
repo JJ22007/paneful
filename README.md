@@ -83,7 +83,7 @@ The script creates a self-signed certificate in your login keychain, used only t
 | `⌃⌥↩` | Maximize | `maximize` |
 | `⌃⌥M` | Almost maximize (90%) | `almostMaximize` |
 | `⌃⌥C` | Center | `center` |
-| `⌃⌥⌫` | Restore the previous frame | `restore` |
+| `⌃⌥⌫` | Restore the previous frame. Right after tile all, puts every tiled window back at once | `restore` |
 | `⌃⌥⌘→` `⌃⌥⌘←` | Walk right, walk left: one half at a time, across every display | `nextDisplay` `prevDisplay` |
 | `⌃⌥⌘↑` | Jump to the next display: focus its front window and move the pointer there. Windows stay put | `focusNextDisplay` |
 

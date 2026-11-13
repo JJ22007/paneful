@@ -97,6 +97,13 @@ func selfTest() -> Int32 {
         && DragSnapper.zone(at: CGPoint(x: 1511, y: 20), in: f) == .bottomRight
         && DragSnapper.zone(at: CGPoint(x: 700, y: 500), in: f) == nil)
 
+    let tiled = [CGRect(x: 0, y: 0, width: 500, height: 500), CGRect(x: 500, y: 0, width: 500, height: 500), CGRect(x: 0, y: 500, width: 500, height: 500)]
+    expect("restore after tile all: all windows still in place go back together",
+           tileUndoGroup(focused: 1, placed: tiled, now: tiled) == [0, 1, 2])
+    expect("restore after tile all: a window moved since, or closed, is left alone",
+           tileUndoGroup(focused: 0, placed: tiled, now: [tiled[0], CGRect(x: 900, y: 0, width: 300, height: 300), nil]) == [0])
+    expect("restore after tile all: if the focused window was moved since, only it goes back",
+           tileUndoGroup(focused: 2, placed: tiled, now: [tiled[0], tiled[1], CGRect(x: 40, y: 40, width: 800, height: 600)]) == [2])
     expect("share out: even split without minimums", shareOut(1000, weights: [1, 1], mins: [0, 0]) == [500, 500])
     expect("share out: a window needing 700 gets it, the other takes the rest", shareOut(1000, weights: [1, 1], mins: [0, 700]) == [300, 700])
     expect("share out: minimums that don't fit are kept", shareOut(1000, weights: [1, 1], mins: [600, 700]) == [600, 700])
