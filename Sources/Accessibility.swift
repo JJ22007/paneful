@@ -83,6 +83,15 @@ enum AX {
     }
 
     /// App name and window title, for `paneful list` and --app / --title matching
+    /// Does the window belong to `app` (name or bundle id) and have `title`? Both are case-insensitive
+    /// substrings, and nil matches anything. Every command that picks windows uses this.
+    static func matches(_ w: AXUIElement, app: String?, title: String?) -> Bool {
+        if app == nil && title == nil { return true }
+        let d = describe(w)
+        return (app.map { d.app.localizedCaseInsensitiveContains($0) || d.bundleID.localizedCaseInsensitiveContains($0) } ?? true)
+            && (title.map { d.title.localizedCaseInsensitiveContains($0) } ?? true)
+    }
+
     static func describe(_ w: AXUIElement) -> (app: String, title: String, bundleID: String) {
         var pid: pid_t = 0
         AXUIElementGetPid(w, &pid)

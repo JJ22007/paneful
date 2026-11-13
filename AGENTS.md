@@ -19,9 +19,12 @@ bash build.sh            # compile to build/Paneful.app and run the self-test
 bash build.sh install    # also copy to ~/Applications and launch
 bash build.sh snapshot   # re-render the welcome screens to docs/welcome-*.png
 bash scripts/setup-signing.sh   # one-time: stable signing identity (user runs this)
+bash scripts/package.sh         # release zip: universal, ad-hoc signed, self-tested on both architectures
 ```
 
-The self-test (`Paneful --selftest`) covers geometry, key parsing, config decoding and drag zones. It runs on every build and the build fails if it fails. Add a check there whenever you add an action, a config field, or a layout rule.
+`build.sh` compiles for macOS 13 (`-target <arch>-apple-macos13`), so using an API newer than 13 fails the build. Wrap it in `if #available` with a fallback instead of raising the minimum.
+
+The self-test (`Paneful --selftest`) covers geometry, tile layouts, key parsing, config decoding, drag zones, `apply` layout parsing and the MCP responses. It runs on every build and the build fails if it fails. Add a check there whenever you add an action, a config field, or a layout rule.
 
 `Paneful --check <file>` validates a config file. Every file in `examples/` must pass it.
 
@@ -29,7 +32,9 @@ The self-test (`Paneful --selftest`) covers geometry, key parsing, config decodi
 
 To look at the welcome screens in another language without changing the system: `build/Paneful.app/Contents/MacOS/Paneful --snapshot /tmp/shots -AppleLanguages "(ja)"`.
 
-The installed app also answers `paneful list | displays | tile | run | place | fullscreen | apply | save | restore | mcp | actions`, each with `--json` (see `Sources/CLI.swift`). With the app running and the permission granted, `paneful list` is a quick way to check real window positions after a change. Moves report the frame read back from macOS, so you can check a layout change against real windows; run `paneful save` first and `paneful restore` afterwards to leave the user's desktop as you found it.
+The installed app also answers `paneful list | displays | tile | run | place | fullscreen | apply | save | restore | mcp | actions`, each with `--json` (see `Sources/CLI.swift`). `list` and `tile` take `--display N`, `--app A` and `--title T` to work on some windows only. With the app running and the permission granted, `paneful list` is a quick way to check real window positions after a change. Moves report the frame read back from macOS, so you can check a layout change against real windows; run `paneful save` first and `paneful restore` afterwards to leave the user's desktop as you found it.
+
+**Test on your own windows, not the user's.** Open throwaway test windows (a few lines of AppKit compiled with `swiftc`, with `minSize` or `maxSize` set to imitate stubborn apps) and drive only them: `paneful tile --app <test app> --display N`, `paneful apply` with their titles. Plain `paneful tile` arranges every window on every display, the user's included. If the user has a second display, ask whether to test there. `paneful save` only sees windows on the current Spaces; windows that appear after a Space switch are not in the file, so check `paneful list` again before trusting a save.
 
 ## What you cannot verify yourself
 
@@ -46,9 +51,9 @@ All sources are in `Sources/`.
 | File | Responsibility |
 |---|---|
 | `Actions.swift` | `Action` enum: built-in actions, titles, default shortcuts, menu grouping, icon shapes |
-| `Geometry.swift` | Pure functions: unit rects, gaps, tiling rows, cross-display remap, coordinate flip |
+| `Geometry.swift` | Pure functions: unit rects, gaps, tile-all shapes and sizing (`tileShape`, `tileFrames`, `shareOut`), display order, cross-display remap, coordinate flip |
 | `WindowManager.swift` | Picks the window and screen, applies a target frame, remembers frames for restore |
-| `Accessibility.swift` | Thin wrapper over the AX API; the only code that needs the permission |
+| `Accessibility.swift` | Thin wrapper over the AX API; the only code that needs the permission. `AX.matches` is the one window matcher (`--app`, `--title`, layouts) |
 | `Config.swift` | `Config` model, defaults, validation warnings, `ConfigStore` (load, save, hot reload) |
 | `Keys.swift` | `KeyCombo.parse("ctrl+alt+left")` and Carbon global hotkey registration |
 | `DragSnap.swift` | Drag-to-edge snapping and its preview overlay |
@@ -66,7 +71,7 @@ All sources are in `Sources/`.
 - **Unit rects.** Positions are expressed as fractions of the screen's visible area (`0...1`), then turned into points by `screenRect(unit:visible:gap:)`. New positions should go through it so gaps keep working.
 - **The config file is the single source of truth** (`~/.config/paneful/config.json`). Menu toggles write to it through `ConfigStore.update`. Do not add a second settings store.
 - **Config must stay forgiving.** Every field is optional when decoding. A bad entry produces a warning from `Config.warnings()` and is skipped; it must never crash the app or block the rest of the config.
-- **Left/right half across displays.** A repeated press cycles widths. With `crossDisplays` on and more than one display it moves the window to the next display instead (`neighborDisplay` in `Geometry.swift`, used in `WindowManager.perform`).
+- **Several displays.** Displays are ordered left to right, then top to bottom, and the order wraps around (`displayOrder`, `neighborDisplay` in `Geometry.swift`); `--display N` counts the same way. `⌃⌥⌘←/→` (`prevDisplay`, `nextDisplay`) walk a window half by half across displays. `⌃⌥⌘↑` (`focusNextDisplay`) moves the focus and the pointer, never a window. A repeated left/right half press cycles widths; with `crossDisplays` on it moves the window to the next display instead.
 - **The CLI channel is guarded.** Requests must carry the token from `CLI.tokenURL` and reply into the temp folder (`CLI.isSafeReplyPath`). Keep both checks if you change the protocol, and never let a request make the app read or write a path it names; file I/O for `save` and `restore` happens in the client.
 - **Messages people see when something is wrong** (permission, taken shortcuts) go through `L(english, chinese)` in `App.swift`. The rest of the UI is English.
 - **Hotkeys are re-registered from scratch** on every config change in `AppDelegate.applyConfig()`.
@@ -84,7 +89,7 @@ All sources are in `Sources/`.
 3. Document it in the README field table and add or update a file in `examples/`.
 
 **Change how "tile all" assigns windows**
-Edit `WindowManager.tileAll()`. The shapes come from `tileShape(_:rows:)` in `Geometry.swift` (a tree of `Tile` slots; the user's `tile.rows` override it), and `tileFrames` lays them out. Many apps have a minimum window size: `tileAll()` reads the windows back and re-lays the shape with those minimums (`shareOut`), so keep columns whole where you can, since a wide window then widens its column instead of overlapping a neighbor. If the user can run it, ask them to try `paneful save && paneful tile` and check the lines marked `differs`, then `paneful restore`.
+Edit `WindowManager.tileAll()`. The shapes come from `tileShape(_:rows:shape:)` in `Geometry.swift` (a tree of `Tile` slots; the user's `tile.rows` and `tile.shapes` override the defaults), and `tileFrames` lays them out. Many apps have a minimum window size, and a few a fixed one (System Settings): `tileAll()` reads the windows back and re-lays the shape with those minimums and maximums (`shareOut`), so keep columns whole where you can, since a wide window then widens its column instead of overlapping a neighbor. Check it on test windows with `paneful tile --app <test app>` (see above) and read the lines marked `differs`.
 
 **See what other agents did**
 [`docs/recipes/`](docs/recipes/README.md) has six one-sentence changes made by an agent, with their diffs and what happened on real windows.
@@ -94,4 +99,4 @@ Edit `Welcome.swift`, then run `bash build.sh snapshot` and look at the PNGs.
 
 ## When you fork
 
-Change `repoURL` in `Sources/main.swift` and the clone URL in both READMEs to the new repository. If you rename the app, also change the bundle identifier and app name in `build.sh`, the identity name in `scripts/setup-signing.sh`, and the config path in `Config.swift`.
+Change `repoURL` in `Sources/main.swift` and the repository links in both READMEs, `RELEASE_NOTES.md` and `.github/ISSUE_TEMPLATE/config.yml` to the new repository. If you rename the app, also change the bundle identifier and app name in `build.sh`, the identity name in `scripts/setup-signing.sh`, and the config path in `Config.swift`.

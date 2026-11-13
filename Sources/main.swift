@@ -166,6 +166,11 @@ func selfTest() -> Int32 {
            && (mcp(#"{"jsonrpc":"2.0","id":6,"method":"nope"}"#)?["error"] as? [String: Any])?["code"] as? Int == -32601
            && (mcp("not json")?["error"] as? [String: Any])?["code"] as? Int == -32700)
 
+    expect("mcp: list_windows and tile_all pass their filters on", MCP.commandFor("list_windows", ["app": "Safari", "display": 2]) == ["list", "--json", "--app", "Safari", "--display", "2"]
+        && MCP.commandFor("tile_all", ["title": "notes"]) == ["tile", "--json", "--title", "notes"]
+        && MCP.commandFor("tile_all", [:]) == ["tile", "--json"]
+        && MCP.commandFor("tile_all", ["display": "two"]) == nil)
+
     print(fails == 0 ? "all tests passed" : "\(fails) test(s) failed")
     return fails == 0 ? 0 : 1
 }

@@ -25,7 +25,8 @@ enum CLI {
     static let usage = """
     paneful: drive the Paneful window manager from scripts and agents.
 
-      paneful list                                 list windows, front to back
+      paneful list [--display N] [--app A] [--title T]
+                                               list windows, front to back (or only matching ones)
       paneful displays                             list displays, numbered left to right
       paneful tile [--display N] [--app A] [--title T]
                                                tile every window, or only those on display N / matching A, T
@@ -198,7 +199,9 @@ enum CLI {
 
         switch args[0] {
         case "list":
-            let wins = AX.windowsFrontToBack()
+            let wins = AX.windowsFrontToBack().filter { w in
+                AX.matches(w.window, app: app, title: title) && (display == nil || WindowManager.shared.screen(for: w.frame) == display)
+            }
             let infos = wins.enumerated().map { i, w in info(w.window, frame: w.frame, index: i + 1) }
             if json { return (0, encode(infos)) }
             return (0, infos.isEmpty ? "no windows" : infos.map(line).joined(separator: "\n"))
@@ -387,12 +390,7 @@ enum CLI {
         var skipped: [[String: Any]] = []
         for e in entries {
             let label: [String: Any] = ["app": e.app ?? "", "title": e.title ?? ""]
-            guard let i = current.indices.first(where: { i in
-                let (name, t, bundle) = AX.describe(current[i].window)
-                return !used.contains(i)
-                    && (e.app.map { name.localizedCaseInsensitiveContains($0) || bundle.localizedCaseInsensitiveContains($0) } ?? true)
-                    && (e.title.map { t.localizedCaseInsensitiveContains($0) } ?? true)
-            }) else { skipped.append(label.merging(["reason": "window not found"]) { a, _ in a }); continue }
+            guard let i = current.indices.first(where: { !used.contains($0) && AX.matches(current[$0].window, app: e.app, title: e.title) }) else { skipped.append(label.merging(["reason": "window not found"]) { a, _ in a }); continue }
             var screen: NSScreen?
             if let d = e.display {
                 guard screens.indices.contains(d - 1) else { skipped.append(label.merging(["reason": "there is no display \(d)"]) { a, _ in a }); continue }
@@ -467,11 +465,7 @@ enum CLI {
 
     private static func target(app: String?, title: String?) -> AXUIElement? {
         if app == nil && title == nil { return AX.focusedWindow() }
-        return AX.windowsFrontToBack().first { w in
-            let (name, t, bundle) = AX.describe(w.window)
-            return (app.map { name.localizedCaseInsensitiveContains($0) || bundle.localizedCaseInsensitiveContains($0) } ?? true)
-                && (title.map { t.localizedCaseInsensitiveContains($0) } ?? true)
-        }?.window
+        return AX.windowsFrontToBack().first { AX.matches($0.window, app: app, title: title) }?.window
     }
 
     private static func notFound(_ app: String?, _ title: String?) -> String {
