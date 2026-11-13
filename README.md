@@ -121,8 +121,9 @@ The config lives at `~/.config/paneful/config.json`. Open it from the menu bar w
 | `custom` | Your own positions. `x`, `y`, `w`, `h` are fractions of the screen from 0 to 1, with the origin at the top left. `key` is optional. |
 | `tile.max` | The most windows "tile all" will arrange. The rest stay put; the most recently used win. |
 | `tile.rows` | Window count → windows per row. `"5": [2, 3]` puts two on top and three below. Unlisted counts use the default rule. |
+| `tile.shapes` | Window count → a named layout: `"columns"` (side by side), `"grid"` (columns of two; with three windows, a 2×2 grid with one corner free) or `"gridSidebar"` (a grid plus a sidebar). `{"3": "grid"}` gives three windows more width each. `tile.rows` wins if both are set. |
 
-**How tile all lays windows out.** Two windows side by side, three in a 2×2 grid with one corner free (narrow thirds are rarely usable), four in a 2×2 grid, five in a 2×2 grid plus a sidebar on the right, six in three columns of two. Many apps refuse to get narrower or shorter than some minimum. Paneful reads each window back after placing it; when one came out bigger than its slot, it gets that room and the other windows share what is left, so nothing ends up hanging off the screen.
+**How tile all lays windows out.** Two or three windows side by side, four in a 2×2 grid, five in a 2×2 grid plus a sidebar on the right, six in three columns of two. Pick another layout for any count with `tile.shapes`. Many apps refuse to get narrower than some minimum, and a few (System Settings) have a fixed width. Paneful reads each window back after placing it; when one came out bigger or smaller than its slot, it gets exactly that room and the other windows share what is left, so nothing hangs off the screen and no gap is left between windows.
 
 **Shortcut syntax.** Modifiers plus one key, joined with `+`, case-insensitive. Modifiers are `ctrl`, `alt`, `shift`, `cmd`. Keys are letters, digits, `left` `right` `up` `down`, `return`, `delete`, `space`, `tab`, `escape`, `f1`–`f12`, and common punctuation.
 

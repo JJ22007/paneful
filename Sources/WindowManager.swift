@@ -144,14 +144,15 @@ final class WindowManager {
         for scr in order {
             let visible = flip(scr.visibleFrame)
             let chosen = Array(byScreen[scr]!.prefix(max(1, config.tile.max)))
-            let shape = tileShape(chosen.count, rows: config.tile.customRows(for: chosen.count))
+            let shape = tileShape(chosen.count, rows: config.tile.customRows(for: chosen.count), shape: config.tile.shape(for: chosen.count))
             var mins = [CGSize](repeating: .zero, count: chosen.count)
+            var maxs = [CGSize](repeating: CGSize(width: CGFloat.infinity, height: .infinity), count: chosen.count)
             var slots = tileFrames(shape, visible: visible, gap: gap)
             let slotOf = assignSlots(windows: chosen.map(\.frame), slots: slots)
             for (item, k) in zip(chosen, slotOf) { place(item.window, from: item.frame, to: slots[k], within: nil, key: nil) }
-            // Many apps won't go below a minimum size. Read the windows back; where one came out bigger
-            // than its slot, give it that much room and let the others share the rest. Repeat while that
-            // squeezes another window below its own minimum.
+            // Many apps won't go below a minimum size, and some (System Settings) have a fixed width.
+            // Read the windows back; where one came out bigger or smaller than its slot, give it exactly
+            // that much room and let the others share the rest. Repeat while that changes another window.
             for _ in 0..<3 {
                 let got = settle(chosen.indices.map { (chosen[$0].window, slots[slotOf[$0]]) })
                 var grew = false
@@ -159,9 +160,11 @@ final class WindowManager {
                     let want = slots[k], have = got[i]
                     if have.width > want.width + 2, have.width > mins[k].width { mins[k].width = have.width; grew = true }
                     if have.height > want.height + 2, have.height > mins[k].height { mins[k].height = have.height; grew = true }
+                    if have.width < want.width - 2, have.width < maxs[k].width { maxs[k].width = have.width; grew = true }
+                    if have.height < want.height - 2, have.height < maxs[k].height { maxs[k].height = have.height; grew = true }
                 }
                 guard grew else { break }
-                slots = tileFrames(shape, visible: visible, gap: gap, mins: mins)
+                slots = tileFrames(shape, visible: visible, gap: gap, mins: mins, maxs: maxs)
                 for (item, k) in zip(chosen, slotOf) {
                     AX.setFrame(slots[k], of: item.window)
                     lastSet[item.window] = slots[k]

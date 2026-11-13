@@ -23,13 +23,20 @@ struct TileConfig: Codable, Equatable {
     /// Window count → windows per row. "5": [3, 2] means three on top and two below.
     /// Counts that are not listed use the default rule.
     var rows: [String: [Int]] = [:]
+    /// Window count → a named layout: "columns", "grid" or "gridSidebar". "3": "grid" puts three windows
+    /// in a 2×2 grid with one corner free. `rows` wins when both are set for the same count.
+    var shapes: [String: String] = [:]
 
     init() {}
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
         max = try c.decodeIfPresent(Int.self, forKey: .max) ?? 6
         rows = try c.decodeIfPresent([String: [Int]].self, forKey: .rows) ?? [:]
+        shapes = try c.decodeIfPresent([String: String].self, forKey: .shapes) ?? [:]
     }
+
+    /// The named layout the user chose for n windows, if any
+    func shape(for n: Int) -> TileShapeName? { shapes[String(n)].flatMap(TileShapeName.init(rawValue:)) }
 
     func rows(for n: Int) -> [Int] { customRows(for: n) ?? defaultTileRows(n) }
 
@@ -87,6 +94,9 @@ struct Config: Codable, Equatable {
             if Int(n) == nil || r.reduce(0, +) != Int(n) || r.contains(where: { $0 <= 0 }) {
                 out.append("tile.rows \"\(n)\": the row sizes must add up to \(n)")
             }
+        }
+        for (n, name) in tile.shapes.sorted(by: { $0.key < $1.key }) where TileShapeName(rawValue: name) == nil || Int(n) == nil {
+            out.append("tile.shapes \"\(n)\": \"\(name)\" is not one of \(TileShapeName.allCases.map(\.rawValue).joined(separator: ", "))")
         }
         if tile.max < 1 { out.append("tile.max must be at least 1") }
         // Two entries on one shortcut: only the first one registered would ever run

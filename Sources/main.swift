@@ -104,8 +104,9 @@ func selfTest() -> Int32 {
     let fit = tileFrames(tileShape(2), visible: v, mins: [.zero, CGSize(width: 1000, height: 0)])
     check("tile 2, right window needs 1000 wide", fit[1], CGRect(x: 512, y: 33, width: 1000, height: 900))
     check("tile 2, left window takes the rest", fit[0], CGRect(x: 0, y: 33, width: 512, height: 900))
-    let three = tileFrames(tileShape(3), visible: v)
-    expect("tile 3: a 2×2 grid with the bottom right free", three.count == 3 && three.allSatisfy { abs($0.width - 756) < 1 && abs($0.height - 450) < 1 }
+    expect("tile 3: side by side by default", tileFrames(tileShape(3), visible: v).allSatisfy { abs($0.width - 504) < 1 && abs($0.height - 900) < 1 })
+    let three = tileFrames(tileShape(3, shape: .grid), visible: v)
+    expect("tile 3 as \"grid\": a 2×2 grid with the bottom right free", three.count == 3 && three.allSatisfy { abs($0.width - 756) < 1 && abs($0.height - 450) < 1 }
         && !three.contains { nearlyEqual($0, CGRect(x: 756, y: 483, width: 756, height: 450), tol: 1) }, "\(three)")
     let five = tileFrames(tileShape(5), visible: v)
     expect("tile 5: 2×2 grid and a full-height sidebar on the right", five.count == 5
@@ -116,6 +117,13 @@ func selfTest() -> Int32 {
         && abs(cols[0].width - 512) < 1, "\(cols)")
     expect("tile: rows from the config still apply", tileFrames(tileShape(5, rows: [3, 2]), visible: v).filter { abs($0.width - 504) < 1 }.count == 3)
     check("tile with gap 12", tileFrames(tileShape(2), visible: v, gap: 12)[0], CGRect(x: 12, y: 45, width: 738, height: 876))
+    let fixed = tileFrames(tileShape(2), visible: v, maxs: [CGSize(width: 500, height: CGFloat.infinity), CGSize(width: CGFloat.infinity, height: CGFloat.infinity)])
+    check("tile 2, a fixed-width window keeps its width", fixed[0], CGRect(x: 0, y: 33, width: 500, height: 900))
+    check("tile 2, its neighbor closes the gap", fixed[1], CGRect(x: 500, y: 33, width: 1012, height: 900))
+    expect("share out: a capped part gives its share away", shareOut(1000, weights: [1, 1], mins: [0, 0], maxs: [300, .infinity]) == [300, 700])
+    expect("config: tile shapes parse, and a bad name is reported", decode(#"{"tile": {"shapes": {"3": "grid"}}}"#)?.tile.shape(for: 3) == .grid
+        && decode(#"{"tile": {"shapes": {"3": "grid"}}}"#)?.warnings().isEmpty == true
+        && decode(#"{"tile": {"shapes": {"3": "nope"}}}"#)?.warnings().count == 1)
     let tooWide = tileFrames(tileShape(2), visible: v, mins: [CGSize(width: 900, height: 0), CGSize(width: 900, height: 0)])
     expect("tile: windows that can't both fit still start on screen", tooWide.allSatisfy { $0.minX >= 0 && $0.minX + 900 <= 1512 }, "\(tooWide)")
     expect("tile: windows keep the slot nearest them, front first",

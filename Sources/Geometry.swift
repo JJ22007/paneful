@@ -131,77 +131,101 @@ indirect enum Tile: Equatable {
     }
 }
 
-/// The default layout for n windows. `rows` (from the config) overrides it with rows of equal cells.
-/// Columns are kept whole where possible, so a window that needs more width widens its column, not just its cell.
-func tileShape(_ n: Int, rows custom: [Int]? = nil) -> Tile {
-    func col(_ k: Int, of slots: Int) -> Tile { .down((0..<slots).map { $0 < k ? .window : .empty }) }
+/// Named layouts for tile all, chosen per window count with `tile.shapes` in the config
+enum TileShapeName: String, CaseIterable {
+    case columns        // everything side by side
+    case grid           // columns of two; with an odd count one corner stays free
+    case gridSidebar    // a grid of the rest, plus a full-height sidebar on the right
+}
+
+/// The layout for n windows. `rows` (from the config) wins, then `shape`, then the default:
+/// 2–3 side by side, 4 and 6 as a grid, 5 as a 2×2 grid with a sidebar, more in rows.
+/// Grids are built from whole columns, so a window that needs more width widens its column, not just its cell.
+func tileShape(_ n: Int, rows custom: [Int]? = nil, shape: TileShapeName? = nil) -> Tile {
     if let r = custom { return .down(r.map { .across(Array(repeating: Tile.window, count: $0)) }) }
-    switch n {
-    case ...1: return .window
-    case 2: return .across([.window, .window])
-    case 3: return .across([col(2, of: 2), col(1, of: 2)])   // a 2×2 grid with one corner free: wide enough to use
-    case 4: return .across([col(2, of: 2), col(2, of: 2)])
-    case 5: return .across([col(2, of: 2), col(2, of: 2), .window], weights: [3, 3, 2])  // 2×2 grid and a sidebar
-    case 6: return .across([col(2, of: 2), col(2, of: 2), col(2, of: 2)])
-    default: return .down(defaultTileRows(n).map { .across(Array(repeating: Tile.window, count: $0)) })
+    if n <= 1 { return .window }
+    func grid(_ k: Int) -> [Tile] {
+        stride(from: 0, to: k, by: 2).map { i in .down([.window, i + 1 < k ? .window : .empty]) }
+    }
+    let pick = shape ?? (n <= 3 ? .columns : n == 5 ? .gridSidebar : n <= 6 ? .grid : nil)
+    switch pick {
+    case .columns: return .across(Array(repeating: Tile.window, count: n))
+    case .grid: return .across(grid(n))
+    case .gridSidebar:
+        let g = grid(n - 1)
+        return .across(g + [.window], weights: g.map { _ in 3 } + [2])
+    case nil: return .down(defaultTileRows(n).map { .across(Array(repeating: Tile.window, count: $0)) })
     }
 }
 
-/// Split `total` by weight, but never give a part less than its minimum: parts that need more get it,
-/// and the rest share what is left. If even the minimums don't fit, each part gets its minimum.
-func shareOut(_ total: CGFloat, weights: [CGFloat], mins: [CGFloat]) -> [CGFloat] {
+/// Split `total` by weight, but keep each part within its smallest and largest size: parts that need
+/// more get it, parts that can't grow get no more than they take, and the rest share what is left.
+/// If even the minimums don't fit, each part gets its minimum.
+func shareOut(_ total: CGFloat, weights: [CGFloat], mins: [CGFloat], maxs: [CGFloat]? = nil) -> [CGFloat] {
+    let maxs = maxs ?? mins.map { _ in .infinity }
     var out = mins.map { _ in CGFloat(0) }, fixed = mins.map { _ in false }
     while true {
         let flex = out.indices.filter { !fixed[$0] }
         if flex.isEmpty { return out }
         let rest = total - out.indices.filter { fixed[$0] }.reduce(0) { $0 + out[$1] }
         let wsum = flex.reduce(0) { $0 + weights[$1] }
-        let tooSmall = flex.filter { mins[$0] > rest * weights[$0] / wsum + 0.5 }
-        if tooSmall.isEmpty {
-            for i in flex { out[i] = max(0, rest * weights[i] / wsum) }
-            return out
-        }
-        for i in tooSmall { fixed[i] = true; out[i] = mins[i] }
+        let share = { (i: Int) in rest * weights[i] / wsum }
+        let low = flex.filter { mins[$0] > share($0) + 0.5 }
+        let high = flex.filter { maxs[$0] < share($0) - 0.5 }
+        // Settle the needier side first: a part that needs more shrinks everyone else's share
+        if !low.isEmpty { for i in low { fixed[i] = true; out[i] = mins[i] }; continue }
+        if !high.isEmpty { for i in high { fixed[i] = true; out[i] = max(mins[i], maxs[i]) }; continue }
+        for i in flex { out[i] = max(0, share(i)) }
+        return out
     }
 }
 
-/// Frames for the window slots of `t`, in depth-first order. `mins` are the smallest sizes the windows
-/// accept (zero when unknown), in the same order. Frames stay on screen even when the minimums don't fit.
-func tileFrames(_ t: Tile, visible v: CGRect, gap: CGFloat = 0, mins: [CGSize] = []) -> [CGRect] {
+/// Frames for the window slots of `t`, in depth-first order. `mins` and `maxs` are the smallest and largest
+/// sizes the windows take (zero and infinity when unknown), in the same order. Frames stay on screen even
+/// when the minimums don't fit.
+func tileFrames(_ t: Tile, visible v: CGRect, gap: CGFloat = 0, mins: [CGSize] = [], maxs: [CGSize] = []) -> [CGRect] {
     let area = v.insetBy(dx: gap, dy: gap)
+    let inf = CGFloat.infinity
     var next = 0
-    func minSize(_ t: Tile, from k: inout Int) -> CGSize {
+    // (min, max) of a subtree, along the width or the height
+    func limits(_ t: Tile, _ wide: Bool, from k: inout Int) -> (CGFloat, CGFloat) {
         switch t {
-        case .window: defer { k += 1 }; return k < mins.count ? mins[k] : .zero
-        case .empty: return .zero
-        case .across(let ts, _):
-            let s = ts.map { minSize($0, from: &k) }
-            return CGSize(width: s.reduce(0) { $0 + $1.width } + gap * CGFloat(ts.count - 1), height: s.map(\.height).max() ?? 0)
-        case .down(let ts):
-            let s = ts.map { minSize($0, from: &k) }
-            return CGSize(width: s.map(\.width).max() ?? 0, height: s.reduce(0) { $0 + $1.height } + gap * CGFloat(ts.count - 1))
+        case .window:
+            defer { k += 1 }
+            let lo = k < mins.count ? (wide ? mins[k].width : mins[k].height) : 0
+            let hi = k < maxs.count ? (wide ? maxs[k].width : maxs[k].height) : inf
+            return (lo, hi)
+        case .empty: return (0, inf)
+        case .across(let ts, _), .down(let ts):
+            let along: Bool = { if case .across = t { return wide } else { return !wide } }()
+            let ls = ts.map { limits($0, wide, from: &k) }
+            if along { return (ls.reduce(0) { $0 + $1.0 } + gap * CGFloat(ts.count - 1), ls.reduce(0) { $0 + $1.1 } + gap * CGFloat(ts.count - 1)) }
+            // Side by side the other way: the largest minimum, and room for the most flexible
+            return (ls.map(\.0).max() ?? 0, ls.map(\.1).max() ?? inf)
         }
     }
     var out: [CGRect] = []
     func lay(_ t: Tile, in r: CGRect) {
         switch t {
         case .window:
-            let m = next < mins.count ? mins[next] : .zero
+            let lo = next < mins.count ? mins[next] : .zero
+            let hi = next < maxs.count ? maxs[next] : CGSize(width: inf, height: inf)
             next += 1
+            let w = min(r.width, hi.width), h = min(r.height, hi.height)
             // Keep a window that will be wider or taller than its slot from running off the screen
-            let x = min(r.minX, area.maxX - max(r.width, m.width)), y = min(r.minY, area.maxY - max(r.height, m.height))
-            out.append(CGRect(x: max(area.minX, x), y: max(area.minY, y), width: r.width, height: r.height).integral)
+            let x = min(r.minX, area.maxX - max(w, lo.width)), y = min(r.minY, area.maxY - max(h, lo.height))
+            out.append(CGRect(x: max(area.minX, x), y: max(area.minY, y), width: w, height: h).integral)
         case .empty: break
         case .across(let ts, let weights):
             var k = next
-            let ms = ts.map { minSize($0, from: &k).width }
-            let ws = shareOut(r.width - gap * CGFloat(ts.count - 1), weights: weights, mins: ms)
+            let ls = ts.map { limits($0, true, from: &k) }
+            let ws = shareOut(r.width - gap * CGFloat(ts.count - 1), weights: weights, mins: ls.map(\.0), maxs: ls.map(\.1))
             var x = r.minX
             for (t, w) in zip(ts, ws) { lay(t, in: CGRect(x: x, y: r.minY, width: w, height: r.height)); x += w + gap }
         case .down(let ts):
             var k = next
-            let ms = ts.map { minSize($0, from: &k).height }
-            let hs = shareOut(r.height - gap * CGFloat(ts.count - 1), weights: ts.map { _ in 1 }, mins: ms)
+            let ls = ts.map { limits($0, false, from: &k) }
+            let hs = shareOut(r.height - gap * CGFloat(ts.count - 1), weights: ts.map { _ in 1 }, mins: ls.map(\.0), maxs: ls.map(\.1))
             var y = r.minY
             for (t, h) in zip(ts, hs) { lay(t, in: CGRect(x: r.minX, y: y, width: r.width, height: h)); y += h + gap }
         }
