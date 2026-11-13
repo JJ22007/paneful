@@ -2,7 +2,7 @@
 
 <p align="center">
   <b>一个小巧的 macOS 窗口管理器,给你和你的 AI 编程助手拿去 Fork、去改造。</b><br>
-  约 2,100 行 Swift,零依赖,一条 <code>swiftc</code> 命令就能编译。自带命令行,agent 可以直接用它帮你摆窗口。
+  约 2,700 行 Swift,零依赖,一条 <code>swiftc</code> 命令就能编译。自带命令行,agent 可以直接用它帮你摆窗口。
 </p>
 
 <p align="center">
@@ -14,7 +14,7 @@
 </p>
 <p align="center"><sub>对 Claude Code 说一句话,杂乱的桌面瞬间归位。真实录屏,agent 思考的几秒做了加速。</sub></p>
 
-Paneful 是一个菜单栏 App,用键盘或者让 agent 把窗口摆到位。它不打算做一个更好的 Rectangle,而是要小到你或你的 AI 编程助手能把它整个读完,再改成你自己的工具:13 个文件、约 2,100 行 Swift,没有第三方依赖,不需要 Xcode 工程,每次编译都会跑一遍自测。
+Paneful 是一个菜单栏 App,用键盘或者让 agent 把窗口摆到位。它不打算做一个更好的 Rectangle,而是要小到你或你的 AI 编程助手能把它整个读完,再改成你自己的工具:14 个文件、约 2,700 行 Swift,没有第三方依赖,不需要 Xcode 工程,每次编译都会跑一遍自测。
 
 > 界面是英文的,出错和权限提示会跟随系统语言显示中文。想要完整的中文界面?这正好是一个很适合交给 AI 助手的改造任务,见下文「做一个属于你自己的」。
 
@@ -53,6 +53,10 @@ bash build.sh install
 ```
 
 脚本会编译、跑自测、把 `Paneful.app` 装到 `~/Applications` 并启动。之后按欢迎引导,在 系统设置 → 隐私与安全性 → 辅助功能 里打开 Paneful。
+
+### 或者下载编译好的 App
+
+每个 [Release](https://github.com/JJ22007/paneful/releases) 都附有 **Paneful-universal.zip**(Apple 芯片和 Intel 通用)。解压后把 **Paneful.app** 拖进"应用程序"。它没有经过 Apple 公证:第一次打开如果被拦下,到 系统设置 → 隐私与安全性 里点"仍要打开"。它用的是临时签名,所以每次更新后 macOS 都会要求重新授权辅助功能;按下面的步骤从源码编译就没有这个问题,而且你还能改 Paneful。`SHA256SUMS.txt` 用来核对下载:`shasum -a 256 -c SHA256SUMS.txt`。
 
 ### 打算反复编译?先运行一次这个
 

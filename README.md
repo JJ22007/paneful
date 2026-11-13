@@ -2,7 +2,7 @@
 
 <p align="center">
   <b>A small macOS window manager for you and your coding agent to fork and reshape.</b><br>
-  about 2,100 lines of Swift, no dependencies, one <code>swiftc</code> command to build. Comes with a CLI your agent can use to arrange your windows.
+  about 2,700 lines of Swift, no dependencies, one <code>swiftc</code> command to build. Comes with a CLI your agent can use to arrange your windows.
 </p>
 
 <p align="center">
@@ -19,7 +19,7 @@
 </p>
 <p align="center"><sub>One sentence to Claude Code, and a messy desktop snaps into place. Real recording; the few seconds the agent spends thinking are sped up.</sub></p>
 
-Paneful is a menu bar app that moves windows with the keyboard, or on an agent's say-so. It is not trying to be a better Rectangle. It is trying to be small enough that you, or your coding agent, can read all of it and turn it into your own tool: 13 files and about 2,100 lines of Swift, no dependencies, no Xcode project, and a self-test that runs on every build.
+Paneful is a menu bar app that moves windows with the keyboard, or on an agent's say-so. It is not trying to be a better Rectangle. It is trying to be small enough that you, or your coding agent, can read all of it and turn it into your own tool: 14 files and about 2,700 lines of Swift, no dependencies, no Xcode project, and a self-test that runs on every build.
 
 ## Which one should you use?
 
@@ -56,6 +56,10 @@ bash build.sh install
 ```
 
 This compiles the app, runs the self-test, installs `Paneful.app` into `~/Applications` and launches it. The welcome guide then walks you through switching Paneful on under System Settings → Privacy & Security → Accessibility.
+
+### Or download a built app
+
+Each [release](https://github.com/JJ22007/paneful/releases) has **Paneful-universal.zip** (Apple silicon and Intel). Unzip it and move **Paneful.app** into Applications. It is not notarized by Apple: if the first launch is blocked, choose **Open Anyway** under System Settings → Privacy & Security. It is ad-hoc signed, so macOS asks for the Accessibility permission again after every update; building from source with the step below avoids that, and lets you change Paneful. `SHA256SUMS.txt` checks the download: `shasum -a 256 -c SHA256SUMS.txt`.
 
 ### Planning to rebuild? Run this once
 
