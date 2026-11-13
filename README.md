@@ -81,10 +81,13 @@ The script creates a self-signed certificate in your login keychain, used only t
 | `⌃⌥C` | Center | `center` |
 | `⌃⌥⌫` | Restore the previous frame | `restore` |
 | `⌃⌥⌘→` `⌃⌥⌘←` | Walk right, walk left: one half at a time, across every display | `nextDisplay` `prevDisplay` |
+| `⌃⌥⌘↑` | Jump to the next display: focus its front window and move the pointer there. Windows stay put | `focusNextDisplay` |
 
 Press left half or right half again to cycle its width: 1/2 → 2/3 → 1/3.
 
 **Walking across displays.** `⌃⌥⌘→` moves a window one half to the right each time: left half, right half, then the left half of the next display, then its right half, and so on. `⌃⌥⌘←` walks back. Displays are taken left to right and wrap around, so it also works when one sits above the other. If you would rather do this with the plain half keys and give up width cycling, set `crossDisplays` to `true`.
+
+**Jumping between displays.** `⌃⌥⌘↑` moves the focus, not a window: it activates the front window on the next display and puts the pointer on it, so the next shortcut works there. macOS's own `⌃←` / `⌃→` then switch Spaces on that display. With two displays the key toggles between them.
 
 ## Make it yours
 

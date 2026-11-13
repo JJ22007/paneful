@@ -33,6 +33,7 @@ final class WindowManager {
     func perform(_ action: Action, on window: AXUIElement? = nil, screen forced: NSScreen? = nil) {
         guard AX.trusted else { onUntrusted?(); return }
         if action == .tileAll { tileAll(); return }
+        if action == .focusNextDisplay { focusNextDisplay(); return }
         guard let w = window ?? AX.focusedWindow(), let cur = AX.frame(of: w) else { NSSound.beep(); return }
         guard let scr = forced ?? screen(for: cur) else { return }
         let visible = flip(scr.visibleFrame)
@@ -84,6 +85,33 @@ final class WindowManager {
             guard let t = targetRect(action, visible: visible, current: cur, cycle: cycle, gap: gap) else { return }
             place(w, from: cur, to: t, within: visible, key: action.rawValue)
         }
+    }
+
+    /// Move the focus, not a window, to the next display: activate the frontmost window there and
+    /// put the pointer on it, so the next shortcut (and macOS's own ⌃←/→ for Spaces) acts on that display.
+    /// Returns the display it went to, numbered like `paneful displays`.
+    @discardableResult
+    func focusNextDisplay() -> Int? {
+        let screens = NSScreen.screens
+        let frames = screens.map { flip($0.frame) }
+        let mouse = flip(CGRect(origin: NSEvent.mouseLocation, size: CGSize(width: 1, height: 1))).origin
+        // Start from the display with the focused window, or the one under the pointer
+        let here = AX.focusedWindow().flatMap { AX.frame(of: $0) }.flatMap { screen(for: $0) }.flatMap { screens.firstIndex(of: $0) }
+            ?? frames.firstIndex { $0.contains(mouse) } ?? 0
+        guard let j = neighborDisplay(of: here, in: frames, left: false) else { NSSound.beep(); return nil }
+        let dest = screens[j]
+        var point = CGPoint(x: frames[j].midX, y: frames[j].midY)
+        if let top = AX.windowsFrontToBack().first(where: { screen(for: $0.frame) == dest }) {
+            var pid: pid_t = 0
+            AXUIElementGetPid(top.window, &pid)
+            AXUIElementPerformAction(top.window, kAXRaiseAction as CFString)
+            AXUIElementSetAttributeValue(top.window, kAXMainAttribute as CFString, kCFBooleanTrue)
+            NSRunningApplication(processIdentifier: pid)?.activate()
+            point = CGPoint(x: top.frame.midX, y: top.frame.midY)
+        }
+        CGWarpMouseCursorPosition(point)
+        CGEvent(mouseEventSource: nil, mouseType: .mouseMoved, mouseCursorPosition: point, mouseButton: .left)?.post(tap: .cghidEventTap)
+        return displayOrder(frames).firstIndex(of: j).map { $0 + 1 }
     }
 
     /// A position defined under `custom` in the config

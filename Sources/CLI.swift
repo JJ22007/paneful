@@ -222,6 +222,10 @@ enum CLI {
                 return fail("unknown action. Run `paneful actions` to see the names.")
             }
             if action == .tileAll { return report(WindowManager.shared.tileAll(), verb: "tiled", json: json) }
+            if action == .focusNextDisplay {
+                guard let n = WindowManager.shared.focusNextDisplay() else { return fail("there is only one display") }
+                return (0, json ? encode(["display": n]) : "focused display \(n)")
+            }
             guard let w = target(app: app, title: title) else { return fail(notFound(app, title)) }
             return moveAndReport(w, json: json) { WindowManager.shared.perform(action, on: w, screen: display) }
 

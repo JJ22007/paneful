@@ -27,7 +27,7 @@ func unitRect(for a: Action, cycle: Int = 0) -> CGRect? {
     case .lastTwoThirds: return CGRect(x: 1.0 / 3, y: 0, width: 2.0 / 3, height: 1)
     case .maximize: return CGRect(x: 0, y: 0, width: 1, height: 1)
     case .almostMaximize: return CGRect(x: 0.05, y: 0.05, width: 0.9, height: 0.9)
-    case .center, .restore, .nextDisplay, .prevDisplay, .tileAll: return nil
+    case .center, .restore, .nextDisplay, .prevDisplay, .focusNextDisplay, .tileAll: return nil
     }
 }
 

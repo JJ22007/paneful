@@ -9,7 +9,7 @@ enum Action: String, CaseIterable {
     case topLeft, topRight, bottomLeft, bottomRight
     case firstThird, centerThird, lastThird, firstTwoThirds, lastTwoThirds
     case maximize, almostMaximize, center, restore
-    case nextDisplay, prevDisplay
+    case nextDisplay, prevDisplay, focusNextDisplay
 
     var title: String {
         switch self {
@@ -33,6 +33,7 @@ enum Action: String, CaseIterable {
         case .restore: return "Restore"
         case .nextDisplay: return "Walk Right"
         case .prevDisplay: return "Walk Left"
+        case .focusNextDisplay: return "Jump to Next Display"
         }
     }
 
@@ -59,6 +60,7 @@ enum Action: String, CaseIterable {
         case .restore: return "ctrl+alt+delete"
         case .nextDisplay: return "ctrl+alt+cmd+right"
         case .prevDisplay: return "ctrl+alt+cmd+left"
+        case .focusNextDisplay: return "ctrl+alt+cmd+up"
         }
     }
 
@@ -69,7 +71,7 @@ enum Action: String, CaseIterable {
         [.topLeft, .topRight, .bottomLeft, .bottomRight],
         [.firstThird, .centerThird, .lastThird, .firstTwoThirds, .lastTwoThirds],
         [.maximize, .almostMaximize, .center, .restore],
-        [.nextDisplay, .prevDisplay],
+        [.nextDisplay, .prevDisplay, .focusNextDisplay],
     ]
 
     /// Regions (unit rects) to fill in the small layout icon
@@ -82,6 +84,7 @@ enum Action: String, CaseIterable {
         case .restore: return [CGRect(x: 0.15, y: 0.2, width: 0.45, height: 0.5)]
         case .nextDisplay: return [CGRect(x: 0.6, y: 0, width: 0.4, height: 1)]
         case .prevDisplay: return [CGRect(x: 0, y: 0, width: 0.4, height: 1)]
+        case .focusNextDisplay: return [CGRect(x: 0.35, y: 0.3, width: 0.3, height: 0.4)]
         default: return unitRect(for: self).map { [$0] } ?? []
         }
     }
